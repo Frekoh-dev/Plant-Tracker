@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+-<DTE>
+
+
+-<Documento>
+		<ID>0090040758</ID>
+
+
+-<Encabezado>
+
+
+-<IdDoc>
+				<Version>4.0</Version>
+				<TipoEmision>01</TipoEmision>
+				<Tipo>N</Tipo>
+				<Serie>0090040758</Serie>
+				<FechaEmis>2021-12-09T10:38:30</FechaEmis>
+				<IndServicio>1000</IndServicio>
+				<TipoServicio>G01</TipoServicio>
+				<FormaPago>03</FormaPago>
+				<MedioPago>PUE</MedioPago>
+				<PerdiodoDesde>2021-12-09</PerdiodoDesde>
+				<TermPagoCdg>ZB11_001_001</TermPagoCdg>
+			</IdDoc>
+
+
+-<Emisor>
+				<RegimenContable>601</RegimenContable>
+				<IDEmisor>EKU9003173C9</IDEmisor>
+				<NmbEmisor>ESCUELA KEMPER URGATE</NmbEmisor>
+				<FacAtrAdquirente>0090040758</FacAtrAdquirente>
+				<CdgGLNEmisor>EKU9003173C9</CdgGLNEmisor>
+
+
+-<DomFiscal>
+					<Calle>Lago Alberto 319</Calle>
+					<NroExterior/>
+					<NroInterior/>
+					<Colonia>Colonia Granada</Colonia>
+					<Municipio/>
+					<Estado>Mexico City</Estado>
+					<Pais>MEX</Pais>
+					<CodigoPostal>11520</CodigoPostal>
+					<Localidad/>
+					<Referencia/>
+					<GLN/>
+				</DomFiscal>
+
+
+-<LugarExped>
+					<Calle>Lago Alberto 319</Calle>
+					<Pais>MEX</Pais>
+					<CodigoPostal>11520</CodigoPostal>
+				</LugarExped>
+			</Emisor>
+
+
+-<Receptor>
+				<RegimenContableR>601</RegimenContableR>
+
+
+-<DocRecep>
+					<NroDocRecep/>
+				</DocRecep>
+				<NmbRecep>COMPU Tech. AGs test</NmbRecep>
+				<CdgGLNRecep>DE327260558</CdgGLNRecep>
+				<Contacto>T-L67B03</Contacto>
+			</Receptor>
+
+
+-<Totales>
+				<Moneda>EUR</Moneda>
+				<FctConv>1.0</FctConv>
+				<SubTotal>908.00</SubTotal>
+				<MntDcto>128.36</MntDcto>
+				<MntBase>0.00</MntBase>
+				<MntImp>0.00</MntImp>
+				<VlrPagar>1036.36</VlrPagar>
+				<VlrPalabras>EINTAUSENDSECHSUNDDREISSIG EUR SECHSUNDDREISSIG</VlrPalabras>
+				<TotQtyItem>4</TotQtyItem>
+			</Totales>
+
+
+-<Impuestos>
+
+
+-<Impuestos>
+					<MontoBaseImp>540.00</MontoBaseImp>
+					<CodTasaImp>002</CodTasaImp>
+					<TipoImp>Tasa</TipoImp>
+					<TasaImp>0.19</TasaImp>
+					<MontoImp>102.60</MontoImp>
+				</Impuestos>
+
+
+-<Impuestos>
+					<MontoBaseImp>368.00</MontoBaseImp>
+					<CodTasaImp>002</CodTasaImp>
+					<TipoImp>Tasa</TipoImp>
+					<TasaImp>0.07</TasaImp>
+					<MontoImp>25.76</MontoImp>
+				</Impuestos>
+			</Impuestos>
+		</Encabezado>
+
+
+-<Detalle>
+
+
+-<Detalle>
+				<NroLinDet>10</NroLinDet>
+
+
+-<CdgItem>
+
+
+-<CdgItem>
+						<TipoCodigo>CPS</TipoCodigo>
+						<VlrCodigo>HT-1032</VlrCodigo>
+					</CdgItem>
+				</CdgItem>
+				<DscLang>D</DscLang>
+				<DscItem>Bildschirm</DscItem>
+				<QtyItem>2</QtyItem>
+				<FchElabor>2023-05-11</FchElabor>
+				<UnmdItem>ST</UnmdItem>
+				<PrcBrutoItem>51.3</PrcBrutoItem>
+				<PrcNetoItem>270</PrcNetoItem>
+				<DescuentoMonto>0.00</DescuentoMonto>
+				<MontoBrutoItem>102.60</MontoBrutoItem>
+				<MontoNetoItem>540.00</MontoNetoItem>
+				<MontoTotalItem>642.60</MontoTotalItem>
+			</Detalle>
+
+
+-<Detalle>
+				<NroLinDet>20</NroLinDet>
+
+
+-<CdgItem>
+
+
+-<CdgItem>
+						<TipoCodigo>CPS</TipoCodigo>
+						<VlrCodigo>HT-1030</VlrCodigo>
+					</CdgItem>
+				</CdgItem>
+				<DscLang>D</DscLang>
+				<DscItem>Ergo Screen</DscItem>
+				<QtyItem>2</QtyItem>
+				<FchElabor>2023-05-11</FchElabor>
+				<UnmdItem>ST</UnmdItem>
+				<PrcBrutoItem>12.88</PrcBrutoItem>
+				<PrcNetoItem>184</PrcNetoItem>
+				<DescuentoMonto>0.00</DescuentoMonto>
+				<MontoBrutoItem>25.76</MontoBrutoItem>
+				<MontoNetoItem>368.00</MontoNetoItem>
+				<MontoTotalItem>393.76</MontoTotalItem>
+			</Detalle>
+		</Detalle>
+		<TimeStamp>2021-12-09T10:38:30</TimeStamp>
+	</Documento>
+</DTE>
