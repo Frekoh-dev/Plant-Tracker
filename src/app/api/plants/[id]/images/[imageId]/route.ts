@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { authOptions } from '@/app/api/auth/auth'
 import prisma from '@/lib/prisma'
 
 export async function DELETE(
@@ -19,6 +19,31 @@ export async function DELETE(
 
     const plantId = parseInt(params.id, 10)
     const imageId = parseInt(params.imageId, 10)
+
+    if (isNaN(plantId) || isNaN(imageId)) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Invalid plant ID or image ID' }),
+        { status: 400 }
+      )
+    }
+
+    const plant = await prisma.plant.findUnique({
+      where: { id: plantId },
+    })
+
+    if (!plant) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Plant not found' }),
+        { status: 404 }
+      )
+    }
+
+    if (plant.userId !== session.user.id) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Not authorized' }),
+        { status: 403 }
+      )
+    }
 
     await prisma.plantImage.delete({
       where: {

@@ -1,6 +1,14 @@
 import { Plant, PlantStage, ProtocolEntry } from "./types"
 import { readAndCompressImage } from 'browser-image-resizer'
 
+// Define the GalleryImage type
+interface GalleryImage {
+  id: number;
+  plantId: number;
+  imageUrl: string;
+  createdAt: Date;
+}
+
 const getAuthToken = () => {
   return localStorage.getItem('authToken')
 }
@@ -80,6 +88,28 @@ export async function addPlant(plantData: { name: string; stage: PlantStage; har
   return response.json()
 }
 
+export async function updatePlant(id: number, plant: Partial<Plant>): Promise<Plant> {
+  const token = getAuthToken()
+  if (!token) {
+    throw new Error('No auth token found')
+  }
+
+  const response = await fetch(`/api/plants/${id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(plant),
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to update plant')
+  }
+
+  return response.json()
+}
+
 export async function updatePlantStage(plantId: number, stage: PlantStage): Promise<Plant> {
   const token = getAuthToken()
   if (!token) {
@@ -135,13 +165,15 @@ export async function deletePlant(plantId: number): Promise<void> {
   }
 }
 
-export async function waterPlant(plantId: number): Promise<Plant> {
+export async function waterPlant(plantId: number, withFertilizer: boolean): Promise<Plant> {
   const token = getAuthToken()
   const response = await fetch(`/api/plants/${plantId}/water`, {
     method: 'POST',
     headers: {
+      'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
     },
+    body: JSON.stringify({ withFertilizer }),
   })
 
   if (!response.ok) {
@@ -151,13 +183,15 @@ export async function waterPlant(plantId: number): Promise<Plant> {
   return response.json()
 }
 
-export async function harvestPlant(plantId: number): Promise<Plant> {
+export async function harvestPlant(plantId: number, harvestedAmount: number): Promise<Plant> {
   const token = getAuthToken()
   const response = await fetch(`/api/plants/${plantId}/harvest`, {
     method: 'POST',
     headers: {
+      'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
     },
+    body: JSON.stringify({ harvestedAmount }),
   })
 
   if (!response.ok) {
@@ -167,6 +201,23 @@ export async function harvestPlant(plantId: number): Promise<Plant> {
   return response.json()
 }
 
+export async function addProtocolEntry(plantId: number, entry: Omit<ProtocolEntry, 'id' | 'plantId'>): Promise<ProtocolEntry> {
+  const token = getAuthToken()
+  const response = await fetch(`/api/plants/${plantId}/protocol`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(entry),
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to add protocol entry')
+  }
+
+  return response.json()
+}
 
 export async function deleteProtocolEntry(plantId: number, entryId: number): Promise<void> {
   const token = getAuthToken()
@@ -182,10 +233,9 @@ export async function deleteProtocolEntry(plantId: number, entryId: number): Pro
   }
 }
 
-
 export async function fetchGalleryImages(plantId: number): Promise<GalleryImage[]> {
   const token = getAuthToken()
-  const response = await fetch(`/api/plants/${plantId}/gallery`, {
+  const response = await fetch(`/api/plants/${plantId}/images`, {
     headers: {
       'Authorization': `Bearer ${token}`,
     },
@@ -203,14 +253,13 @@ async function resizeImage(file: File): Promise<Blob> {
     return file
   }
 
-  const { readAndCompressImage } = await import('browser-image-resizer')
   const config = {
     quality: 0.7,
     maxWidth: 800,
-    maxHeight: 800,
+    maxHeight: 600,
     autoRotate: true,
     debug: true,
-  }
+  };
 
   return await readAndCompressImage(file, config)
 }
@@ -262,7 +311,7 @@ export async function uploadGalleryImage(plantId: number, file: File): Promise<G
     reader.onerror = error => reject(error)
   })
 
-  const response = await fetch(`/api/plants/${plantId}/gallery`, {
+  const response = await fetch(`/api/plants/${plantId}/images`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -279,20 +328,19 @@ export async function uploadGalleryImage(plantId: number, file: File): Promise<G
   return response.json()
 }
 
-import { ProtocolEntry } from '../types'
-
 export async function fetchProtocol(plantId: number): Promise<ProtocolEntry[]> {
-  try {
-    const response = await fetch(`/api/plants/${plantId}/protocol`)
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-    
-    const data = await response.json()
-    return data as ProtocolEntry[]
-  } catch (error) {
-    console.error('Error fetching protocol:', error)
-    throw error
+  const token = getAuthToken()
+  if (!token) throw new Error('No auth token found')
+
+  const response = await fetch(`/api/plants/${plantId}/protocol`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  })
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch protocol: ${response.status}`)
   }
+  
+  return response.json()
 }

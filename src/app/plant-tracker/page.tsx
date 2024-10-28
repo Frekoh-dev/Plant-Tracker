@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import { PlantCard } from '@/components/PlantCard'
+import { PictureGallery } from '@/components/PictureGallery'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,13 +18,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Plant, PlantStage } from '@/types'
-import { Settings, LogOut, Loader2 } from 'lucide-react'
+import { Settings, LogOut } from 'lucide-react'
 import { AddPlantDialog } from '@/components/AddPlantDialog'
+import { Plant, PlantStage, ProtocolEntry } from '@/types'
+import { removeToken, getToken, setToken } from '@/lib/auth'
+
+interface PlantWithProtocol extends Plant {
+  protocolEntries: ProtocolEntry[];
+  isHarvested: boolean;
+}
 
 export default function PlantTrackerPage() {
-  const [plants, setPlants] = useState<Plant[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [plants, setPlants] = useState<PlantWithProtocol[]>([])
   const [isHarvestDialogOpen, setIsHarvestDialogOpen] = useState(false)
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false)
   const [harvestingPlantId, setHarvestingPlantId] = useState<number | null>(null)
@@ -31,17 +37,76 @@ export default function PlantTrackerPage() {
   const [activeTab, setActiveTab] = useState<'active' | 'harvested'>('active')
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system')
   const [openPlantId, setOpenPlantId] = useState<number | null>(null)
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false)
+  const [galleryPlant, setGalleryPlant] = useState<PlantWithProtocol | null>(null)
   const { toast } = useToast()
   const router = useRouter()
   const { data: session, status } = useSession()
 
+  const handleAuthError = useCallback((error: string) => {
+    console.error('Authentication error:', error)
+    toast({
+      title: "Authentication Error",
+      description: error,
+      variant: "destructive",
+    })
+    removeToken()
+    signOut({ redirect: false })
+    router.push('/login')
+  }, [toast, router])
+
+  const fetchPlants = useCallback(async () => {
+    try {
+      const token = getToken()
+      if (!token) {
+        console.log('No token found, redirecting to login')
+        router.push('/login')
+        return
+      }
+
+      console.log('Fetching plants with token:', token)
+
+      const response = await fetch('/api/plants', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+      
+      if (!response.ok) {
+        const responseText = await response.text()
+        console.error('Error response:', response.status, responseText)
+        
+        if (response.status === 401) {
+          handleAuthError("Session expired. Please log in again.")
+          return
+        }
+        throw new Error(`Failed to fetch plants: ${response.status} ${responseText}`)
+      }
+      
+      const data: PlantWithProtocol[] = await response.json()
+      console.log('Fetched plants:', data)
+      setPlants(data)
+    } catch (error) {
+      console.error('Error fetching plants:', error)
+      toast({
+        title: "Error",
+        description: "Failed to fetch plants. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }, [toast, handleAuthError, router])
+
   useEffect(() => {
     if (status === 'unauthenticated') {
+      console.log('User is unauthenticated, redirecting to login')
       router.push('/login')
-    } else if (status === 'authenticated') {
+    } else if (status === 'authenticated' && session?.accessToken) {
+      console.log('User is authenticated, setting token and fetching plants')
+      setToken(session.accessToken)
       fetchPlants()
     }
-  }, [status, router])
+  }, [status, session, router, fetchPlants])
 
   useEffect(() => {
     const root = window.document.documentElement
@@ -54,36 +119,56 @@ export default function PlantTrackerPage() {
     }
   }, [theme])
 
-  const fetchPlants = async () => {
+  const handleAddPlant = async (newPlant: Plant) => {
     try {
-      const response = await fetch('/api/plants')
-      if (!response.ok) {
-        throw new Error('Failed to fetch plants')
+      const token = getToken()
+      if (!token) {
+        handleAuthError("Your session has expired. Please log in again.")
+        return
       }
-      const data = await response.json()
-      setPlants(data)
+
+      const response = await fetch('/api/plants', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(newPlant),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to add plant')
+      }
+
+      const addedPlant: PlantWithProtocol = await response.json()
+      setPlants([...plants, addedPlant])
+      toast({
+        title: "Success",
+        description: "Plant added successfully!",
+      })
     } catch (error) {
-      console.error('Error fetching plants:', error)
+      console.error('Error adding plant:', error)
       toast({
         title: "Error",
-        description: "Failed to fetch plants. Please try again.",
+        description: "Failed to add plant. Please try again.",
         variant: "destructive",
       })
-    } finally {
-      setIsLoading(false)
     }
-  }
-
-  const handleAddPlant = (newPlant: Plant) => {
-    setPlants([...plants, newPlant])
   }
 
   const handleWaterPlant = async (id: number, withFertilizer: boolean) => {
     try {
+      const token = getToken()
+      if (!token) {
+        handleAuthError("Your session has expired. Please log in again.")
+        return
+      }
+
       const response = await fetch(`/api/plants/${id}/water`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({ withFertilizer }),
       })
@@ -92,7 +177,7 @@ export default function PlantTrackerPage() {
         throw new Error('Failed to water plant')
       }
 
-      const updatedPlant = await response.json()
+      const updatedPlant: PlantWithProtocol = await response.json()
       setPlants(plants.map(plant => plant.id === id ? updatedPlant : plant))
       toast({
         title: "Success",
@@ -110,10 +195,17 @@ export default function PlantTrackerPage() {
 
   const handleUpdateStage = async (id: number, stage: PlantStage) => {
     try {
+      const token = getToken()
+      if (!token) {
+        handleAuthError("Your session has expired. Please log in again.")
+        return
+      }
+
       const response = await fetch(`/api/plants/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({ stage }),
       })
@@ -122,7 +214,7 @@ export default function PlantTrackerPage() {
         throw new Error('Failed to update plant stage')
       }
 
-      const updatedPlant = await response.json()
+      const updatedPlant: PlantWithProtocol = await response.json()
       setPlants(plants.map(plant => plant.id === id ? updatedPlant : plant))
       toast({
         title: "Success",
@@ -140,8 +232,17 @@ export default function PlantTrackerPage() {
 
   const handleDeletePlant = async (id: number) => {
     try {
+      const token = getToken()
+      if (!token) {
+        handleAuthError("Your session has expired. Please log in again.")
+        return
+      }
+
       const response = await fetch(`/api/plants/${id}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
       })
 
       if (!response.ok) {
@@ -172,10 +273,17 @@ export default function PlantTrackerPage() {
     if (!harvestingPlantId) return
 
     try {
+      const token = getToken()
+      if (!token) {
+        handleAuthError("Your session has expired. Please log in again.")
+        return
+      }
+
       const response = await fetch(`/api/plants/${harvestingPlantId}/harvest`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({ harvestedAmount: parseFloat(harvestedAmount) }),
       })
@@ -184,7 +292,7 @@ export default function PlantTrackerPage() {
         throw new Error('Failed to harvest plant')
       }
 
-      const updatedPlant = await response.json()
+      const updatedPlant: PlantWithProtocol = await response.json()
       setPlants(plants.map(plant => plant.id === harvestingPlantId ? updatedPlant : plant))
       setIsHarvestDialogOpen(false)
       setHarvestingPlantId(null)
@@ -204,18 +312,55 @@ export default function PlantTrackerPage() {
   }
 
   const handleImageUpload = async (id: number, imageUrl: string) => {
-    setPlants(plants.map(plant => plant.id === id ? { ...plant, imageUrl } : plant))
-  }
+    try {
+      const token = getToken()
+      if (!token) {
+        handleAuthError("Your session has expired. Please log in again.")
+        return
+      }
 
-  const handleOpenGallery = (id: number) => {
-    // Implement gallery opening logic here
-    console.log(`Opening gallery for plant ${id}`)
+      const response = await fetch(`/api/plants/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ imageUrl }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update plant image')
+      }
+
+      const updatedPlant: PlantWithProtocol = await response.json()
+      setPlants(plants.map(plant => plant.id === id ? updatedPlant : plant))
+      toast({
+        title: "Success",
+        description: "Plant image updated successfully!",
+      })
+    } catch (error) {
+      console.error('Error updating plant image:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update plant image. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleDeleteProtocolEntry = async (plantId: number, entryId: number) => {
     try {
+      const token = getToken()
+      if (!token) {
+        handleAuthError("Your session has expired. Please log in again.")
+        return
+      }
+
       const response = await fetch(`/api/plants/${plantId}/protocol/${entryId}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
       })
 
       if (!response.ok) {
@@ -226,7 +371,7 @@ export default function PlantTrackerPage() {
         if (plant.id === plantId) {
           return {
             ...plant,
-            protocolEntries: plant.protocolEntries?.filter(entry => entry.id !== entryId) || []
+            protocolEntries: plant.protocolEntries.filter(entry => entry.id !== entryId)
           }
         }
         return plant
@@ -250,22 +395,34 @@ export default function PlantTrackerPage() {
     setOpenPlantId(openPlantId === id ? null : id)
   }
 
-  const handleUpdatePlant = async (updatedPlant: Plant) => {
+  const handleUpdatePlant = async (updatedPlant: Partial<Plant>): Promise<void> => {
     try {
+      const token = getToken()
+      if (!token) {
+        handleAuthError("Your session has expired. Please log in again.")
+        return
+      }
+
       const response = await fetch(`/api/plants/${updatedPlant.id}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(updatedPlant),
       })
 
       if (!response.ok) {
-        throw new Error('Failed to update plant')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to update plant')
       }
 
-      const updatedPlantData = await response.json()
-      setPlants(plants.map(plant => plant.id === updatedPlantData.id ? updatedPlantData : plant))
+      const updated: PlantWithProtocol = await response.json()
+      setPlants(prevPlants =>
+        prevPlants.map(plant =>
+          plant.id === updated.id ? { ...plant, ...updated } : plant
+        )
+      )
       toast({
         title: "Success",
         description: "Plant updated successfully!",
@@ -277,20 +434,21 @@ export default function PlantTrackerPage() {
         description: "Failed to update plant. Please try again.",
         variant: "destructive",
       })
+      throw error
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
+  const handleOpenGallery = (id: number) => {
+    const plant = plants.find(p => p.id === id)
+    if (plant) {
+      setGalleryPlant(plant)
+      setIsGalleryOpen(true)
+    }
   }
 
   return (
     <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center  mb-6">
         <h1 className="text-2xl font-bold">My Plants</h1>
         <div className="flex items-center space-x-2">
           <DropdownMenu>
@@ -330,10 +488,10 @@ export default function PlantTrackerPage() {
                 onDelete={handleDeletePlant}
                 onHarvest={handleHarvest}
                 onImageUpload={handleImageUpload}
-                onOpenGallery={handleOpenGallery}
                 onDeleteProtocolEntry={handleDeleteProtocolEntry}
                 isOpen={openPlantId === plant.id}
                 onToggle={() => handleTogglePlantCard(plant.id)}
+                onOpenGallery={handleOpenGallery}
               />
             ))}
           </div>
@@ -350,10 +508,10 @@ export default function PlantTrackerPage() {
                 onDelete={handleDeletePlant}
                 onHarvest={handleHarvest}
                 onImageUpload={handleImageUpload}
-                onOpenGallery={handleOpenGallery}
                 onDeleteProtocolEntry={handleDeleteProtocolEntry}
                 isOpen={openPlantId === plant.id}
                 onToggle={() => handleTogglePlantCard(plant.id)}
+                onOpenGallery={handleOpenGallery}
               />
             ))}
           </div>
@@ -394,8 +552,10 @@ export default function PlantTrackerPage() {
           </DialogHeader>
           <div className="grid w-full items-center gap-4">
             <div className="flex flex-col space-y-1.5">
-              <Label  htmlFor="theme">Theme</Label>
-              <RadioGroup id="theme" value={theme} onValueChange={(value) => setTheme(value as 'light' | 'dark' | 'system')}>
+              <Label htmlFor="theme">Theme</Label>
+              <RadioGroup id="theme" value={theme} onValueChange={(value) => 
+                setTheme(value as 'light' | 'dark' | 'system')
+              }>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="light" id="light" />
                   <Label htmlFor="light">Light</Label>
@@ -416,6 +576,16 @@ export default function PlantTrackerPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {galleryPlant && (
+        <PictureGallery
+          isOpen={isGalleryOpen}
+          onClose={() => setIsGalleryOpen(false)}
+          plantId={galleryPlant.id}
+          plantName={galleryPlant.name}
+          initialImages={galleryPlant.imageUrl ? [galleryPlant.imageUrl] : []}
+        />
+      )}
     </div>
   )
 }

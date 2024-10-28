@@ -11,8 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Pencil, Trash2, Droplets, Scissors, ChevronDown, Sprout, Leaf, Flower, Apple, Image as ImageIcon, FileText } from 'lucide-react'
 import { useToast } from "@/components/ui/use-toast"
-import { PictureGallery } from './PictureGallery'
-import { PlantDetail } from './PlantDetail'
+import PlantDetail from './PlantDetail'
 import { format, differenceInDays } from 'date-fns'
 
 interface PlantCardProps {
@@ -23,9 +22,10 @@ interface PlantCardProps {
   onHarvest: (id: number) => void
   onImageUpload: (id: number, imageUrl: string) => Promise<void>
   onDeleteProtocolEntry: (plantId: number, entryId: number) => void
-  onUpdate: (updatedPlant: Plant) => void
+  onUpdate: (updatedPlant: Partial<Plant>) => void
   isOpen: boolean
   onToggle: () => void
+  onOpenGallery: (id: number) => void
 }
 
 export function PlantCard({
@@ -38,12 +38,12 @@ export function PlantCard({
   onDeleteProtocolEntry,
   onUpdate,
   isOpen,
-  onToggle
+  onToggle,
+  onOpenGallery
 }: PlantCardProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isImageUploadDialogOpen, setIsImageUploadDialogOpen] = useState(false)
   const [isWaterDialogOpen, setIsWaterDialogOpen] = useState(false)
-  const [isGalleryOpen, setIsGalleryOpen] = useState(false)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
@@ -227,7 +227,7 @@ export function PlantCard({
     return days === 0 ? 'Today' : `${days} day${days === 1 ? '' : 's'} ago`
   }
 
-  const handleUpdatePlant = async (updatedPlant: Plant) => {
+  const handleUpdatePlant = async (updatedPlant: Partial<Plant>) => {
     await onUpdate(updatedPlant)
     setIsDetailOpen(false)
   }
@@ -333,8 +333,8 @@ export function PlantCard({
               </div>
             </div>
           </div>
-          <div className="flex justify-center items-center mt-4">
-            <Select value={plant.stage} onValueChange={handleStageChange}>
+          <div className="flex  justify-center items-center mt-4">
+            <Select  value={plant.stage} onValueChange={handleStageChange}>
               <SelectTrigger  id={`stage-${plant.id}`} className="w-[180px]">
                 <SelectValue placeholder="Select a stage" />
               </SelectTrigger>
@@ -383,7 +383,11 @@ export function PlantCard({
                 </Button>
               </div>
             )}
-            <Button variant="outline" className="w-full bg-purple-100 hover:bg-purple-200 dark:bg-purple-900 dark:hover:bg-purple-800 dark:text-purple-100 shadow-[0_0_10px_rgba(0,0,0,0.3)] hover:shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-shadow duration-300" onClick={() => setIsGalleryOpen(true)}>
+            <Button 
+              variant="outline" 
+              className="w-full bg-purple-100 hover:bg-purple-200 dark:bg-purple-900 dark:hover:bg-purple-800 dark:text-purple-100 shadow-[0_0_10px_rgba(0,0,0,0.3)] hover:shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-shadow duration-300" 
+              onClick={() => onOpenGallery(plant.id)}
+            >
               <ImageIcon className="h-4 w-4 mr-2" />
               Open Gallery
             </Button>
@@ -452,11 +456,6 @@ export function PlantCard({
           </div>
         </CardContent>
       </div>
-      <PictureGallery
-        plantId={plant.id}
-        isOpen={isGalleryOpen}
-        onClose={() => setIsGalleryOpen(false)}
-      />
       <PlantDetail
         plant={plant}
         isOpen={isDetailOpen}

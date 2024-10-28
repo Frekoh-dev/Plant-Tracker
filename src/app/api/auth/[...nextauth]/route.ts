@@ -1,42 +1,33 @@
-import NextAuth from "next-auth"
-import { NextAuthOptions } from "next-auth"
-import CredentialsProvider from "next-auth/providers/credentials"
-import { PrismaAdapter } from "@next-auth/prisma-adapter"
-import { compare } from "bcrypt"
-import prisma from "@/lib/prisma"
+import NextAuth from 'next-auth'
+import CredentialsProvider from 'next-auth/providers/credentials'
+import { PrismaClient } from '@prisma/client'
+import bcrypt from 'bcryptjs'
+import { v4 as uuidv4 } from 'uuid'
 
-export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
-  secret: process.env.NEXTAUTH_SECRET,
-  session: {
-    strategy: "jwt",
-  },
-  pages: {
-    signIn: "/login",
-  },
+const prisma = new PrismaClient()
+
+const handler = NextAuth({
   providers: [
     CredentialsProvider({
-      name: "Credentials",
+      name: 'Credentials',
       credentials: {
-        username: { label: "Username", type: "text", placeholder: "jsmith" },
+        username: { label: "Username", type: "text" },
         password: { label: "Password", type: "password" }
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.username || !credentials?.password) {
           return null
         }
 
         const user = await prisma.user.findUnique({
-          where: {
-            username: credentials.username
-          }
+          where: { username: credentials.username }
         })
 
         if (!user) {
           return null
         }
 
-        const isPasswordValid = await compare(credentials.password, user.password)
+        const isPasswordValid = await bcrypt.compare(credentials.password, user.password)
 
         if (!isPasswordValid) {
           return null
@@ -44,37 +35,36 @@ export const authOptions: NextAuthOptions = {
 
         return {
           id: user.id,
-          username: user.username,
-          email: user.email,
           name: user.name,
+          email: user.email,
+          username: user.username,
         }
       }
     })
   ],
   callbacks: {
-    session: ({ session, token }) => {
-      return {
-        ...session,
-        user: {
-          ...session.user,
-          id: token.id,
-          username: token.username,
-        },
-      }
-    },
-    jwt: ({ token, user }) => {
+    async jwt({ token, user }) {
       if (user) {
-        const u = user as unknown as any
-        return {
-          ...token,
-          id: u.id,
-          username: u.username,
-        }
+        token.id = user.id
+        token.username = user.username
+        token.accessToken = uuidv4() // Generate a unique access token
       }
       return token
     },
+    async session({ session, token }) {
+      if (token) {
+        session.user.id = token.id
+        session.user.username = token.username
+        session.accessToken = token.accessToken // Include the access token in the session
+      }
+      return session
+    },
   },
-}
+  pages: {
+    signIn: '/login',
+  },
+  secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === 'development',
+})
 
-const handler = NextAuth(authOptions)
 export { handler as GET, handler as POST }

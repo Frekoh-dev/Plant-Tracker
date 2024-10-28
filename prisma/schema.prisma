@@ -64,13 +64,13 @@ model Plant {
   user            User            @relation(fields: [userId], references: [id])
   protocolEntries ProtocolEntry[]
   isHarvested     Boolean         @default(false)
-  harvestedAmount Float?          // New field for harvested amount in grams
-  images          PlantImage[]    // Relation to PlantImage
-  seedDate       DateTime?
-  seedlingDate   DateTime?
-  vegetativeDate DateTime?
-  floweringDate  DateTime?
-  ripeningDate   DateTime?
+  harvestedAmount Float?
+  images          PlantImage[]
+  seedDate        DateTime?
+  seedlingDate    DateTime?
+  vegetativeDate  DateTime?
+  floweringDate   DateTime?
+  ripeningDate    DateTime?
 }
 
 model ProtocolEntry {
@@ -84,7 +84,7 @@ model ProtocolEntry {
 
 model PlantImage {
   id        Int      @id @default(autoincrement())
-  imageUrl  String   // This will store the base64 encoded image
+  imageUrl  String
   plant     Plant    @relation(fields: [plantId], references: [id])
   plantId   Int
   createdAt DateTime @default(now())

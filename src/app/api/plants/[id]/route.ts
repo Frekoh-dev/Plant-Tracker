@@ -1,19 +1,55 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { authOptions } from '@/app/api/auth/auth'
 import prisma from '@/lib/prisma'
+import { PlantStage, Prisma } from '@prisma/client'
 
-// Define PlantStage enum directly in this file
-enum PlantStage {
-  SEED = 'SEED',
-  SEEDLING = 'SEEDLING',
-  VEGETATIVE = 'VEGETATIVE',
-  FLOWERING = 'FLOWERING',
-  RIPENING = 'RIPENING'
+type SanitizedPlantData = Prisma.PlantUpdateInput
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    console.log('GET /api/plants/[id]: Fetching plant details')
+    const session = await getServerSession(authOptions)
+
+    if (!session || !session.user) {
+      console.log('GET /api/plants/[id]: Unauthorized')
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const plantId = parseInt(params.id, 10)
+    if (isNaN(plantId)) {
+      return NextResponse.json({ error: 'Invalid plant ID' }, { status: 400 })
+    }
+
+    const plant = await prisma.plant.findUnique({
+      where: { id: plantId },
+      include: { protocolEntries: true },
+    })
+
+    if (!plant) {
+      return NextResponse.json({ error: 'Plant not found' }, { status: 404 })
+    }
+
+    if (plant.userId !== session.user.id) {
+      return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
+    }
+
+    console.log('GET /api/plants/[id]: Plant details fetched successfully')
+    return NextResponse.json(plant)
+  } catch (error) {
+    console.error('GET /api/plants/[id]: Error fetching plant details:', error)
+    return NextResponse.json(
+      { error: 'Internal Server Error', details: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    )
+  }
 }
 
 export async function PATCH(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -22,18 +58,12 @@ export async function PATCH(
 
     if (!session || !session.user) {
       console.log('PATCH /api/plants/[id]: Unauthorized')
-      return new NextResponse(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401 }
-      )
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const plantId = parseInt(params.id, 10)
     if (isNaN(plantId)) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Invalid plant ID' }),
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Invalid plant ID' }, { status: 400 })
     }
 
     const plant = await prisma.plant.findUnique({
@@ -41,22 +71,15 @@ export async function PATCH(
     })
 
     if (!plant) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Plant not found' }),
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Plant not found' }, { status: 404 })
     }
 
     if (plant.userId !== session.user.id) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Not authorized' }),
-        { status: 403 }
-      )
+      return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
     }
 
     const body = await request.json()
 
-    // Validate and sanitize input
     const validFields = [
       'name',
       'species',
@@ -69,56 +92,67 @@ export async function PATCH(
       'vegetativeDate',
       'floweringDate',
       'ripeningDate',
-    ]
+    ] as const
 
-    const sanitizedData: Record<string, any> = {}
+    const sanitizedData: SanitizedPlantData = {}
 
-    for (const [key, value] of Object.entries(body)) {
-      if (validFields.includes(key)) {
+    for (const key of validFields) {
+      if (key in body) {
         if (key === 'stage') {
-          if (!Object.values(PlantStage).includes(value as PlantStage)) {
-            console.log('PATCH /api/plants/[id]: Invalid plant stage', { stage: value })
-            return new NextResponse(
-              JSON.stringify({ error: 'Invalid plant stage' }),
-              { status: 400 }
-            )
+          const stageValue = body[key] as PlantStage | null
+          if (stageValue !== null && !Object.values(PlantStage).includes(stageValue)) {
+            console.log('PATCH /api/plants/[id]: Invalid plant stage', { stage: stageValue })
+            return NextResponse.json({ error: 'Invalid plant stage' }, { status: 400 })
           }
-          sanitizedData[key] = value
+          sanitizedData.stage = stageValue || undefined
 
-          // Update the corresponding date field for the new stage
-          const currentDate = new Date().toISOString()
-          switch (value) {
-            case PlantStage.SEED:
-              sanitizedData['seedDate'] = currentDate
-              break
-            case PlantStage.SEEDLING:
-              sanitizedData['seedlingDate'] = currentDate
-              break
-            case PlantStage.VEGETATIVE:
-              sanitizedData['vegetativeDate'] = currentDate
-              break
-            case PlantStage.FLOWERING:
-              sanitizedData['floweringDate'] = currentDate
-              break
-            case PlantStage.RIPENING:
-              sanitizedData['ripeningDate'] = currentDate
-              break
+          if (stageValue) {
+            const currentDate = new Date()
+            switch (stageValue) {
+              case PlantStage.SEED:
+                sanitizedData.seedDate = { set: currentDate }
+                break
+              case PlantStage.SEEDLING:
+                sanitizedData.seedlingDate = { set: currentDate }
+                break
+              case PlantStage.VEGETATIVE:
+                sanitizedData.vegetativeDate = { set: currentDate }
+                break
+              case PlantStage.FLOWERING:
+                sanitizedData.floweringDate = { set: currentDate }
+                break
+              case PlantStage.RIPENING:
+                sanitizedData.ripeningDate = { set: currentDate }
+                break
+            }
           }
-        } else if (key.endsWith('Date') && value) {
-          // Ensure dates are in ISO format
-          sanitizedData[key] = new Date(value).toISOString()
+        } else if (key.endsWith('Date')) {
+          switch (key) {
+            case 'seedDate':
+            case 'seedlingDate':
+            case 'vegetativeDate':
+            case 'floweringDate':
+            case 'ripeningDate':
+              sanitizedData[key] = {
+                set: body[key] ? new Date(body[key] as string) : null
+              }
+              break
+            default:
+              console.warn(`Unexpected date field: ${key}`)
+          }
+        } else if (key === 'isHarvested') {
+          sanitizedData[key] = { set: Boolean(body[key]) }
+        } else if (key === 'harvestedAmount') {
+          sanitizedData[key] = { set: body[key] !== null ? Number(body[key]) : null }
         } else {
-          sanitizedData[key] = value
+          // For string fields (name, species, imageUrl)
+          sanitizedData[key as 'name' | 'species' | 'imageUrl'] = { set: body[key] }
         }
       }
     }
 
-    // Ensure we have data to update
     if (Object.keys(sanitizedData).length === 0) {
-      return new NextResponse(
-        JSON.stringify({ error: 'No valid fields to update' }),
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
     }
 
     console.log('PATCH /api/plants/[id]: Updating plant details', { plantId, ...sanitizedData })
@@ -132,15 +166,23 @@ export async function PATCH(
     return NextResponse.json(updatedPlant)
   } catch (error) {
     console.error('PATCH /api/plants/[id]: Error updating plant details:', error)
-    return new NextResponse(
-      JSON.stringify({ error: 'Internal Server Error', details: error instanceof Error ? error.message : 'Unknown error' }),
+    return NextResponse.json(
+      { error: 'Internal Server Error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }
 }
 
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  // For full updates, we can reuse the PATCH logic
+  return PATCH(request, { params })
+}
+
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -149,18 +191,12 @@ export async function DELETE(
 
     if (!session || !session.user) {
       console.log('DELETE /api/plants/[id]: Unauthorized')
-      return new NextResponse(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401 }
-      )
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const plantId = parseInt(params.id, 10)
     if (isNaN(plantId)) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Invalid plant ID' }),
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Invalid plant ID' }, { status: 400 })
     }
 
     const plant = await prisma.plant.findUnique({
@@ -168,42 +204,28 @@ export async function DELETE(
     })
 
     if (!plant) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Plant not found' }),
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Plant not found' }, { status: 404 })
     }
 
     if (plant.userId !== session.user.id) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Not authorized' }),
-        { status: 403 }
-      )
+      return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
     }
 
     console.log('DELETE /api/plants/[id]: Deleting plant and related records', { plantId })
 
-    // Start a transaction to ensure all operations succeed or fail together
     await prisma.$transaction(async (prisma) => {
-      // Delete related protocol entries (if this model exists)
-      if (prisma.protocolEntry) {
-        await prisma.protocolEntry.deleteMany({
-          where: {
-            plantId: plantId,
-          },
-        })
-      }
+      await prisma.protocolEntry.deleteMany({
+        where: {
+          plantId: plantId,
+        },
+      })
 
-      // Delete related images (if this model exists)
-      if (prisma.plantImage) {
-        await prisma.plantImage.deleteMany({
-          where: {
-            plantId: plantId,
-          },
-        })
-      }
+      await prisma.plantImage.deleteMany({
+        where: {
+          plantId: plantId,
+        },
+      })
 
-      // Finally, delete the plant
       await prisma.plant.delete({
         where: { id: plantId },
       })
@@ -213,8 +235,8 @@ export async function DELETE(
     return new NextResponse(null, { status: 204 })
   } catch (error) {
     console.error('DELETE /api/plants/[id]: Error deleting plant:', error)
-    return new NextResponse(
-      JSON.stringify({ error: 'Internal Server Error', details: error instanceof Error ? error.message : 'Unknown error' }),
+    return NextResponse.json(
+      { error: 'Internal Server Error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }

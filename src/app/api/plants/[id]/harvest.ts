@@ -2,15 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/app/api/auth/auth'
 import prisma from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 
-export async function POST(
+type SanitizedPlantData = Prisma.PlantUpdateInput
+
+export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    console.log('PATCH /api/plants/[id]/harvest: Updating plant harvest details')
     const session = await getServerSession(authOptions)
 
     if (!session || !session.user) {
+      console.log('PATCH /api/plants/[id]/harvest: Unauthorized')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -31,16 +36,28 @@ export async function POST(
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
     }
 
+    const body = await request.json()
+
+    const sanitizedData: SanitizedPlantData = {
+      isHarvested: true,
+      harvestedAmount: body.harvestedAmount || 0,
+    }
+
+    if (body.harvestedAt) {
+      sanitizedData.ripeningDate = new Date(body.harvestedAt)
+    }
+
+    console.log('PATCH /api/plants/[id]/harvest: Updating plant harvest details', { plantId, ...sanitizedData })
+
     const updatedPlant = await prisma.plant.update({
       where: { id: plantId },
-      data: { 
-        isHarvested: true,
-      },
+      data: sanitizedData,
     })
 
+    console.log('PATCH /api/plants/[id]/harvest: Plant harvest details updated successfully')
     return NextResponse.json(updatedPlant)
   } catch (error) {
-    console.error('Error harvesting plant:', error)
+    console.error('PATCH /api/plants/[id]/harvest: Error updating plant harvest details:', error)
     return NextResponse.json(
       { error: 'Internal Server Error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }

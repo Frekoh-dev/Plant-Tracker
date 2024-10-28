@@ -1,6 +1,5 @@
-// src/lib/api.ts
-
-import { getToken } from './auth';
+import { getToken, removeToken } from './auth';
+import { Protocol } from '../types';
 
 export async function fetchWithAuth(url: string, options: RequestInit = {}) {
   const token = getToken();
@@ -17,28 +16,27 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
 
   if (response.status === 401) {
     // Handle unauthorized access (e.g., redirect to login page)
-    removeToken();
-    window.location.href = '/login';
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
     return null;
   }
 
   return response;
 }
 
-import { Protocol } from '../types'
-
 export async function fetchProtocol(plantId: number): Promise<Protocol> {
   try {
-    const response = await fetch(`/api/plants/${plantId}/protocol`)
+    const response = await fetchWithAuth(`/api/plants/${plantId}/protocol`);
     
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
+    if (!response || !response.ok) {
+      throw new Error(`HTTP error! status: ${response?.status}`);
     }
     
-    const data = await response.json()
-    return data as Protocol
+    const data = await response.json();
+    return data as Protocol;
   } catch (error) {
-    console.error('Error fetching protocol:', error)
-    throw error
+    console.error('Error fetching protocol:', error);
+    throw error;
   }
 }

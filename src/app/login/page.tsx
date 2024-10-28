@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { signIn } from 'next-auth/react'
+import { signIn, useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/components/ui/use-toast"
 import { RegisterDialog } from '@/components/RegisterDialog'
+import { Loader2 } from 'lucide-react'
+import { setToken } from '@/lib/auth'
 
 export default function LoginPage() {
   const [username, setUsername] = useState('')
@@ -17,30 +19,59 @@ export default function LoginPage() {
   const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
+  const { data: session, status } = useSession()
 
   useEffect(() => {
-    // This effect is used to ensure the correct mode is applied on initial render
     const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches
     document.documentElement.classList.toggle('dark', isDarkMode)
   }, [])
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    setIsLoading(true)
     try {
+      console.log('Attempting to sign in with username:', username)
       const result = await signIn('credentials', {
         redirect: false,
-        username,
-        password,
+        username: username,
+        password: password,
       })
 
+      console.log('Sign in result:', result)
+
       if (result?.error) {
+        console.error('Sign in error:', result.error)
         toast({
-          title: "Error",
-          description: "Invalid username or password",
+          title: "Authentication Failed",
+          description: "Invalid username or password. Please try again.",
           variant: "destructive",
         })
+      } else if (result?.ok) {
+        console.log('Sign in successful')
+        const response = await fetch('/api/auth/session')
+        const sessionData = await response.json()
+        
+        console.log('Session data:', sessionData)
+
+        if (sessionData?.accessToken) {
+          console.log('Token found in session:', sessionData.accessToken)
+          setToken(sessionData.accessToken)
+          router.push('/plant-tracker')
+        } else {
+          console.error('No token found in session')
+          toast({
+            title: "Login Error",
+            description: "No access token found. Please try again.",
+            variant: "destructive",
+          })
+        }
       } else {
-        router.push('/plant-tracker')
+        console.error('Unexpected sign in result:', result)
+        toast({
+          title: "Error",
+          description: "An unexpected error occurred. Please try again.",
+          variant: "destructive",
+        })
       }
     } catch (error) {
       console.error('Login error:', error)
@@ -49,6 +80,8 @@ export default function LoginPage() {
         description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -71,6 +104,7 @@ export default function LoginPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                disabled={isLoading}
               />
             </div>
             <div className="space-y-2">
@@ -83,33 +117,40 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                disabled={isLoading}
               />
             </div>
-            <Button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white">
-              Login
+            <Button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Logging in...
+                </>
+              ) : (
+                'Login'
+              )}
             </Button>
           </form>
         </CardContent>
         <CardFooter className="flex justify-center">
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Don&apos;t have an account?{' '}
-<Button
-        type="button"
-        variant="link"
-        className="mt-4"
-        onClick={() => setIsRegisterDialogOpen(true)}
-      >
-        Sign up
-      </Button>
+            <Button
+              type="button"
+              variant="link"
+              className="mt-4"
+              onClick={() => setIsRegisterDialogOpen(true)}
+              disabled={isLoading}
+            >
+              Sign up
+            </Button>
+          </p>
+        </CardFooter>
+      </Card>
       <RegisterDialog
         isOpen={isRegisterDialogOpen}
         onClose={() => setIsRegisterDialogOpen(false)}
       />
-			  
-            
-          </p>
-        </CardFooter>
-      </Card>
     </div>
   )
 }

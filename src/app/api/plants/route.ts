@@ -1,66 +1,73 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { PrismaClient, PlantStage } from '@prisma/client'
+import { getToken } from "next-auth/jwt"
 
 const prisma = new PrismaClient()
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    console.log('GET /api/plants: Fetching plants')
-    const session = await getServerSession(authOptions)
+    console.log('Received request for /api/plants')
     
-    if (!session || !session.user) {
-      console.log('GET /api/plants: Unauthorized')
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
+    console.log('Token from getToken:', token ? 'exists' : 'null')
+    
+    if (!token) {
+      console.log('No token found, returning 401')
+      return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      })
     }
 
-    const userId = session.user.id
+    const userId = token.id as string
+    console.log('User ID from token:', userId)
 
     const plants = await prisma.plant.findMany({
       where: { userId: userId },
-      include: {
-        protocolEntries: true,
-      },
-      orderBy: { createdAt: 'desc' },
+      include: { protocolEntries: true }, // Changed from 'protocol' to 'protocolEntries'
     })
 
-    console.log(`GET /api/plants: Successfully fetched ${plants.length} plants`)
-    return NextResponse.json(plants)
+    console.log(`Found ${plants.length} plants for user ${userId}`)
+
+    return new NextResponse(JSON.stringify(plants), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })
   } catch (error) {
-    console.error('GET /api/plants: Error fetching plants:', error)
-    return NextResponse.json({ error: 'An error occurred while fetching plants' }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
+    console.error('Error in /api/plants:', error)
+    return new NextResponse(JSON.stringify({ error: 'Internal Server Error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
     console.log('POST /api/plants: Creating new plant')
-    const session = await getServerSession(authOptions)
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
     
-    if (!session || !session.user) {
+    if (!token) {
       console.log('POST /api/plants: Unauthorized')
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    const userId = session.user.id
+    const userId = token.id as string
 
-    const { name, stage, imageUrl } = await request.json()
+    const { name, stage, imageUrl } = await req.json()
 
     if (!name || typeof name !== 'string') {
       return NextResponse.json({ error: 'Name is required and must be a string' }, { status: 400 })
     }
 
-    if (!stage || typeof stage !== 'string') {
-      return NextResponse.json({ error: 'Stage is required and must be a string' }, { status: 400 })
+    if (!stage || !Object.values(PlantStage).includes(stage as PlantStage)) {
+      return NextResponse.json({ error: 'Stage is required and must be a valid PlantStage' }, { status: 400 })
     }
 
     const newPlant = await prisma.plant.create({
       data: {
         name,
-        stage,
+        stage: stage as PlantStage,
         userId,
         imageUrl,
       },
