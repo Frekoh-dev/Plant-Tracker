@@ -333,7 +333,7 @@ export function PlantCard({
               </div>
             </div>
           </div>
-          <div className="flex  justify-center items-center mt-4">
+          <div className="flex  justify-center items-center  mt-4">
             <Select  value={plant.stage} onValueChange={handleStageChange}>
               <SelectTrigger  id={`stage-${plant.id}`} className="w-[180px]">
                 <SelectValue placeholder="Select a stage" />

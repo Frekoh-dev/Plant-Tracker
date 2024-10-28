@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import { PlantCard } from '@/components/PlantCard'
-import { PictureGallery } from '@/components/PictureGallery'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -20,8 +19,9 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Settings, LogOut } from 'lucide-react'
 import { AddPlantDialog } from '@/components/AddPlantDialog'
+import { PictureGallery } from '@/components/PictureGallery'
 import { Plant, PlantStage, ProtocolEntry } from '@/types'
-import { removeToken, getToken, setToken } from '@/lib/auth'
+import { removeToken, getToken } from '@/lib/auth'
 
 interface PlantWithProtocol extends Plant {
   protocolEntries: ProtocolEntry[];
@@ -37,8 +37,8 @@ export default function PlantTrackerPage() {
   const [activeTab, setActiveTab] = useState<'active' | 'harvested'>('active')
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system')
   const [openPlantId, setOpenPlantId] = useState<number | null>(null)
+  const [galleryPlantId, setGalleryPlantId] = useState<number | null>(null)
   const [isGalleryOpen, setIsGalleryOpen] = useState(false)
-  const [galleryPlant, setGalleryPlant] = useState<PlantWithProtocol | null>(null)
   const { toast } = useToast()
   const router = useRouter()
   const { data: session, status } = useSession()
@@ -101,9 +101,8 @@ export default function PlantTrackerPage() {
     if (status === 'unauthenticated') {
       console.log('User is unauthenticated, redirecting to login')
       router.push('/login')
-    } else if (status === 'authenticated' && session?.accessToken) {
-      console.log('User is authenticated, setting token and fetching plants')
-      setToken(session.accessToken)
+    } else if (status === 'authenticated' && session) {
+      console.log('User is authenticated, fetching plants')
       fetchPlants()
     }
   }, [status, session, router, fetchPlants])
@@ -439,17 +438,21 @@ export default function PlantTrackerPage() {
   }
 
   const handleOpenGallery = (id: number) => {
-    const plant = plants.find(p => p.id === id)
-    if (plant) {
-      setGalleryPlant(plant)
-      setIsGalleryOpen(true)
-    }
+    console.log(`Opening gallery for plant with id: ${id}`)
+    setGalleryPlantId(id)
+    setIsGalleryOpen(true)
+  }
+
+  const handleCloseGallery = () => {
+    setIsGalleryOpen(false)
+    setGalleryPlantId(null)
   }
 
   return (
     <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center  mb-6">
-        <h1 className="text-2xl font-bold">My Plants</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl  font-bold">My Plants</h1>
+        
         <div className="flex items-center space-x-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -577,15 +580,11 @@ export default function PlantTrackerPage() {
         </DialogContent>
       </Dialog>
 
-      {galleryPlant && (
-        <PictureGallery
-          isOpen={isGalleryOpen}
-          onClose={() => setIsGalleryOpen(false)}
-          plantId={galleryPlant.id}
-          plantName={galleryPlant.name}
-          initialImages={galleryPlant.imageUrl ? [galleryPlant.imageUrl] : []}
-        />
-      )}
+      <PictureGallery
+        plantId={galleryPlantId || 0}
+        isOpen={isGalleryOpen}
+        onClose={handleCloseGallery}
+      />
     </div>
   )
 }

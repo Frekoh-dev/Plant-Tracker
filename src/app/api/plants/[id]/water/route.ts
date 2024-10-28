@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { authOptions } from '@/lib/authOptions'
 import prisma from '@/lib/prisma'
 
 export async function POST(
@@ -24,7 +24,7 @@ export async function POST(
     const updatedPlant = await prisma.plant.update({
       where: {
         id: plantId,
-        userId: session.user.id, // Assuming the user id is stored in the session
+        userId: session.user.id,
       },
       data: {
         lastWatered: new Date(),

@@ -2,19 +2,24 @@ import jwt from 'jsonwebtoken'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
 
-export function signJwtToken(payload: object): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' })
+interface DecodedToken {
+  userId: string
+  username: string
+  iat: number
+  exp: number
 }
 
-export async function verifyJwtToken(token: string): Promise<any> {
+export function verifyJwtToken(token: string): Promise<DecodedToken> {
   return new Promise((resolve, reject) => {
     jwt.verify(token, JWT_SECRET, (err, decoded) => {
       if (err) {
-        console.error('JWT Verification Error:', err)
-        reject(err)
-      } else {
-        resolve(decoded)
+        return reject(err)
       }
+      resolve(decoded as DecodedToken)
     })
   })
+}
+
+export function generateJwtToken(payload: { userId: string; username: string }): string {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' })
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { signIn, useSession } from 'next-auth/react'
+import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,7 +19,6 @@ export default function LoginPage() {
   const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
-  const { data: session, status } = useSession()
 
   useEffect(() => {
     const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches
