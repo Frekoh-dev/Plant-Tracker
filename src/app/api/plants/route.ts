@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   try {
     console.log('Received request for /api/plants')
     
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
+    const token = await getToken({ req })
     console.log('Token from getToken:', token ? JSON.stringify(token) : 'null')
     
     if (!token || !token.sub) {
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     console.log('POST /api/plants: Creating new plant')
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
+    const token = await getToken({ req })
     
     if (!token || !token.sub) {
       console.log('POST /api/plants: Unauthorized')
