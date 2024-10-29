@@ -9,22 +9,22 @@ export async function GET(req: NextRequest) {
     console.log('Received request for /api/plants')
     
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
-    console.log('Token from getToken:', token ? 'exists' : 'null')
+    console.log('Token from getToken:', token ? JSON.stringify(token) : 'null')
     
-    if (!token) {
-      console.log('No token found, returning 401')
+    if (!token || !token.sub) {
+      console.log('No valid token found, returning 401')
       return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
       })
     }
 
-    const userId = token.id as string
+    const userId = token.sub
     console.log('User ID from token:', userId)
 
     const plants = await prisma.plant.findMany({
       where: { userId: userId },
-      include: { protocolEntries: true }, // Changed from 'protocol' to 'protocolEntries'
+      include: { protocolEntries: true },
     })
 
     console.log(`Found ${plants.length} plants for user ${userId}`)
@@ -39,6 +39,8 @@ export async function GET(req: NextRequest) {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     })
+  } finally {
+    await prisma.$disconnect()
   }
 }
 
@@ -47,12 +49,12 @@ export async function POST(req: NextRequest) {
     console.log('POST /api/plants: Creating new plant')
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
     
-    if (!token) {
+    if (!token || !token.sub) {
       console.log('POST /api/plants: Unauthorized')
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    const userId = token.id as string
+    const userId = token.sub
 
     const { name, stage, imageUrl } = await req.json()
 
