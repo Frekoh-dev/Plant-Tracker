@@ -38,6 +38,7 @@ export default function PlantTrackerPage() {
   const [openPlantId, setOpenPlantId] = useState<number | null>(null)
   const [galleryPlantId, setGalleryPlantId] = useState<number | null>(null)
   const [isGalleryOpen, setIsGalleryOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const { toast } = useToast()
   const router = useRouter()
   const { data: session, status } = useSession()
@@ -74,6 +75,8 @@ export default function PlantTrackerPage() {
         description: "Failed to fetch plants. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setIsLoading(false)
     }
   }, [session, router, toast])
 
@@ -116,7 +119,7 @@ export default function PlantTrackerPage() {
       }
 
       const addedPlant: PlantWithProtocol = await response.json()
-      setPlants([...plants, addedPlant])
+      setPlants(prevPlants => [...prevPlants, addedPlant])
       toast({
         title: "Success",
         description: "Plant added successfully!",
@@ -149,7 +152,7 @@ export default function PlantTrackerPage() {
       }
 
       const updatedPlant: PlantWithProtocol = await response.json()
-      setPlants(plants.map(plant => plant.id === id ? updatedPlant : plant))
+      setPlants(prevPlants => prevPlants.map(plant => plant.id === id ? updatedPlant : plant))
       toast({
         title: "Success",
         description: `Plant watered ${withFertilizer ? 'with fertilizer' : 'without fertilizer'}.`,
@@ -182,7 +185,7 @@ export default function PlantTrackerPage() {
       }
 
       const updatedPlant: PlantWithProtocol = await response.json()
-      setPlants(plants.map(plant => plant.id === id ? updatedPlant : plant))
+      setPlants(prevPlants => prevPlants.map(plant => plant.id === id ? updatedPlant : plant))
       toast({
         title: "Success",
         description: "Plant stage updated successfully!",
@@ -212,7 +215,7 @@ export default function PlantTrackerPage() {
         throw new Error('Failed to delete plant')
       }
 
-      setPlants(plants.filter(plant => plant.id !== id))
+      setPlants(prevPlants => prevPlants.filter(plant => plant.id !== id))
       toast({
         title: "Success",
         description: "Plant deleted successfully!",
@@ -250,7 +253,7 @@ export default function PlantTrackerPage() {
       }
 
       const updatedPlant: PlantWithProtocol = await response.json()
-      setPlants(plants.map(plant => plant.id === harvestingPlantId ? updatedPlant : plant))
+      setPlants(prevPlants => prevPlants.map(plant => plant.id === harvestingPlantId ? updatedPlant : plant))
       setIsHarvestDialogOpen(false)
       setHarvestingPlantId(null)
       setHarvestedAmount('')
@@ -286,7 +289,7 @@ export default function PlantTrackerPage() {
       }
 
       const updatedPlant: PlantWithProtocol = await response.json()
-      setPlants(plants.map(plant => plant.id === id ? updatedPlant : plant))
+      setPlants(prevPlants => prevPlants.map(plant => plant.id === id ? updatedPlant : plant))
       toast({
         title: "Success",
         description: "Plant image updated successfully!",
@@ -316,7 +319,7 @@ export default function PlantTrackerPage() {
         throw new Error('Failed to delete protocol entry')
       }
 
-      setPlants(plants.map(plant => {
+      setPlants(prevPlants => prevPlants.map(plant => {
         if (plant.id === plantId) {
           return {
             ...plant,
@@ -394,7 +397,7 @@ export default function PlantTrackerPage() {
     setGalleryPlantId(null)
   }
 
-  if (status === 'loading') {
+  if (status === 'loading' || isLoading) {
     return <div>Loading...</div>
   }
 
@@ -417,7 +420,7 @@ export default function PlantTrackerPage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => setIsSettingsDialogOpen(true)}>
-                <Settings className="mr-2 h-4 w-4" />
+                <Settings className="mr-2 h-4 w-4"   />
                 <span>Settings</span>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => signOut()}>
@@ -429,7 +432,7 @@ export default function PlantTrackerPage() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as  'active' | 'harvested')} className="w-full">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'active' | 'harvested')} className="w-full">
         <TabsList className="w-full">
           <TabsTrigger value="active" className="flex-1">Active Plants</TabsTrigger>
           <TabsTrigger value="harvested" className="flex-1">Harvested Plants</TabsTrigger>
