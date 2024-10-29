@@ -21,7 +21,6 @@ import { Settings, LogOut } from 'lucide-react'
 import { AddPlantDialog } from '@/components/AddPlantDialog'
 import { PictureGallery } from '@/components/PictureGallery'
 import { Plant, PlantStage, ProtocolEntry } from '@/types'
-import { removeToken, getToken } from '@/lib/auth'
 
 interface PlantWithProtocol extends Plant {
   protocolEntries: ProtocolEntry[];
@@ -43,33 +42,13 @@ export default function PlantTrackerPage() {
   const router = useRouter()
   const { data: session, status } = useSession()
 
-  const handleAuthError = useCallback((error: string) => {
-    console.error('Authentication error:', error)
-    toast({
-      title: "Authentication Error",
-      description: error,
-      variant: "destructive",
-    })
-    removeToken()
-    signOut({ redirect: false })
-    router.push('/login')
-  }, [toast, router])
-
   const fetchPlants = useCallback(async () => {
+    if (!session?.user?.id) return
+
     try {
-      const token = getToken()
-      if (!token) {
-        console.log('No token found, redirecting to login')
-        router.push('/login')
-        return
-      }
-
-      console.log('Fetching plants with token:', token)
-
       const response = await fetch('/api/plants', {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.user.id}`,
         },
       })
       
@@ -78,7 +57,8 @@ export default function PlantTrackerPage() {
         console.error('Error response:', response.status, responseText)
         
         if (response.status === 401) {
-          handleAuthError("Session expired. Please log in again.")
+          signOut()
+          router.push('/login')
           return
         }
         throw new Error(`Failed to fetch plants: ${response.status} ${responseText}`)
@@ -95,7 +75,7 @@ export default function PlantTrackerPage() {
         variant: "destructive",
       })
     }
-  }, [toast, handleAuthError, router])
+  }, [session, router, toast])
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -119,18 +99,14 @@ export default function PlantTrackerPage() {
   }, [theme])
 
   const handleAddPlant = async (newPlant: Plant) => {
-    try {
-      const token = getToken()
-      if (!token) {
-        handleAuthError("Your session has expired. Please log in again.")
-        return
-      }
+    if (!session?.user?.id) return
 
+    try {
       const response = await fetch('/api/plants', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${session.user.id}`,
         },
         body: JSON.stringify(newPlant),
       })
@@ -156,18 +132,14 @@ export default function PlantTrackerPage() {
   }
 
   const handleWaterPlant = async (id: number, withFertilizer: boolean) => {
-    try {
-      const token = getToken()
-      if (!token) {
-        handleAuthError("Your session has expired. Please log in again.")
-        return
-      }
+    if (!session?.user?.id) return
 
+    try {
       const response = await fetch(`/api/plants/${id}/water`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${session.user.id}`,
         },
         body: JSON.stringify({ withFertilizer }),
       })
@@ -193,18 +165,14 @@ export default function PlantTrackerPage() {
   }
 
   const handleUpdateStage = async (id: number, stage: PlantStage) => {
-    try {
-      const token = getToken()
-      if (!token) {
-        handleAuthError("Your session has expired. Please log in again.")
-        return
-      }
+    if (!session?.user?.id) return
 
+    try {
       const response = await fetch(`/api/plants/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${session.user.id}`,
         },
         body: JSON.stringify({ stage }),
       })
@@ -230,17 +198,13 @@ export default function PlantTrackerPage() {
   }
 
   const handleDeletePlant = async (id: number) => {
-    try {
-      const token = getToken()
-      if (!token) {
-        handleAuthError("Your session has expired. Please log in again.")
-        return
-      }
+    if (!session?.user?.id) return
 
+    try {
       const response = await fetch(`/api/plants/${id}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${session.user.id}`,
         },
       })
 
@@ -269,20 +233,14 @@ export default function PlantTrackerPage() {
   }
 
   const handleConfirmHarvest = async () => {
-    if (!harvestingPlantId) return
+    if (!harvestingPlantId || !session?.user?.id) return
 
     try {
-      const token = getToken()
-      if (!token) {
-        handleAuthError("Your session has expired. Please log in again.")
-        return
-      }
-
       const response = await fetch(`/api/plants/${harvestingPlantId}/harvest`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${session.user.id}`,
         },
         body: JSON.stringify({ harvestedAmount: parseFloat(harvestedAmount) }),
       })
@@ -311,18 +269,14 @@ export default function PlantTrackerPage() {
   }
 
   const handleImageUpload = async (id: number, imageUrl: string) => {
-    try {
-      const token = getToken()
-      if (!token) {
-        handleAuthError("Your session has expired. Please log in again.")
-        return
-      }
+    if (!session?.user?.id) return
 
+    try {
       const response = await fetch(`/api/plants/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${session.user.id}`,
         },
         body: JSON.stringify({ imageUrl }),
       })
@@ -348,17 +302,13 @@ export default function PlantTrackerPage() {
   }
 
   const handleDeleteProtocolEntry = async (plantId: number, entryId: number) => {
-    try {
-      const token = getToken()
-      if (!token) {
-        handleAuthError("Your session has expired. Please log in again.")
-        return
-      }
+    if (!session?.user?.id) return
 
+    try {
       const response = await fetch(`/api/plants/${plantId}/protocol/${entryId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${session.user.id}`,
         },
       })
 
@@ -395,18 +345,14 @@ export default function PlantTrackerPage() {
   }
 
   const handleUpdatePlant = async (updatedPlant: Partial<Plant>): Promise<void> => {
-    try {
-      const token = getToken()
-      if (!token) {
-        handleAuthError("Your session has expired. Please log in again.")
-        return
-      }
+    if (!session?.user?.id) return
 
+    try {
       const response = await fetch(`/api/plants/${updatedPlant.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${session.user.id}`,
         },
         body: JSON.stringify(updatedPlant),
       })
@@ -448,10 +394,19 @@ export default function PlantTrackerPage() {
     setGalleryPlantId(null)
   }
 
+  if (status === 'loading') {
+    return <div>Loading...</div>
+  }
+
+  if (status === 'unauthenticated') {
+    router.push('/login')
+    return null
+  }
+
   return (
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl  font-bold">My Plants</h1>
+        <h1 className="text-2xl font-bold">My Plants</h1>
         
         <div className="flex items-center space-x-2">
           <DropdownMenu>
@@ -474,7 +429,7 @@ export default function PlantTrackerPage() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'active' | 'harvested')} className="w-full">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as  'active' | 'harvested')} className="w-full">
         <TabsList className="w-full">
           <TabsTrigger value="active" className="flex-1">Active Plants</TabsTrigger>
           <TabsTrigger value="harvested" className="flex-1">Harvested Plants</TabsTrigger>
