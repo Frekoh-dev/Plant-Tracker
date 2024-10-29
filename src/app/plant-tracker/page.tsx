@@ -42,7 +42,7 @@ export default function PlantTrackerPage() {
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
   const router = useRouter()
-  const { data: session, status } = useSession()
+  const { status } = useSession()
 
   const fetchPlants = useCallback(async () => {
     if (status !== 'authenticated') return
