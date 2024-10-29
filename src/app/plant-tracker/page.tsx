@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Settings, LogOut } from 'lucide-react'
+import { Settings, LogOut, Loader2 } from 'lucide-react'
 import { AddPlantDialog } from '@/components/AddPlantDialog'
 import { PictureGallery } from '@/components/PictureGallery'
 import { Plant, PlantStage, ProtocolEntry } from '@/types'
@@ -39,56 +39,46 @@ export default function PlantTrackerPage() {
   const [galleryPlantId, setGalleryPlantId] = useState<number | null>(null)
   const [isGalleryOpen, setIsGalleryOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
   const router = useRouter()
   const { data: session, status } = useSession()
 
   const fetchPlants = useCallback(async () => {
-    if (!session?.user?.id) return
+    if (status !== 'authenticated') return
 
     try {
-      const response = await fetch('/api/plants', {
-        headers: {
-          'Authorization': `Bearer ${session.user.id}`,
-        },
-      })
+      setIsLoading(true)
+      setError(null)
+      const response = await fetch('/api/plants')
       
       if (!response.ok) {
-        const responseText = await response.text()
-        console.error('Error response:', response.status, responseText)
-        
         if (response.status === 401) {
-          signOut()
-          router.push('/login')
-          return
+          setError('Your session has expired. Please refresh the page or log in again.')
+        } else {
+          throw new Error(`Failed to fetch plants: ${response.status}`)
         }
-        throw new Error(`Failed to fetch plants: ${response.status} ${responseText}`)
+        return
       }
       
       const data: PlantWithProtocol[] = await response.json()
-      console.log('Fetched plants:', data)
       setPlants(data)
     } catch (error) {
       console.error('Error fetching plants:', error)
-      toast({
-        title: "Error",
-        description: "Failed to fetch plants. Please try again.",
-        variant: "destructive",
-      })
+      setError('Failed to fetch plants. Please try again later.')
     } finally {
       setIsLoading(false)
     }
-  }, [session, router, toast])
+  }, [status])
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      console.log('User is unauthenticated, redirecting to login')
-      router.push('/login')
-    } else if (status === 'authenticated' && session) {
-      console.log('User is authenticated, fetching plants')
+    if (status === 'authenticated') {
       fetchPlants()
+    } else if (status === 'unauthenticated') {
+      setError('Please log in to view your plants.')
+      setIsLoading(false)
     }
-  }, [status, session, router, fetchPlants])
+  }, [status, fetchPlants])
 
   useEffect(() => {
     const root = window.document.documentElement
@@ -102,14 +92,13 @@ export default function PlantTrackerPage() {
   }, [theme])
 
   const handleAddPlant = async (newPlant: Plant) => {
-    if (!session?.user?.id) return
+    if (status !== 'authenticated') return
 
     try {
       const response = await fetch('/api/plants', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.user.id}`,
         },
         body: JSON.stringify(newPlant),
       })
@@ -135,14 +124,13 @@ export default function PlantTrackerPage() {
   }
 
   const handleWaterPlant = async (id: number, withFertilizer: boolean) => {
-    if (!session?.user?.id) return
+    if (status !== 'authenticated') return
 
     try {
       const response = await fetch(`/api/plants/${id}/water`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.user.id}`,
         },
         body: JSON.stringify({ withFertilizer }),
       })
@@ -168,14 +156,13 @@ export default function PlantTrackerPage() {
   }
 
   const handleUpdateStage = async (id: number, stage: PlantStage) => {
-    if (!session?.user?.id) return
+    if (status !== 'authenticated') return
 
     try {
       const response = await fetch(`/api/plants/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.user.id}`,
         },
         body: JSON.stringify({ stage }),
       })
@@ -201,14 +188,11 @@ export default function PlantTrackerPage() {
   }
 
   const handleDeletePlant = async (id: number) => {
-    if (!session?.user?.id) return
+    if (status !== 'authenticated') return
 
     try {
       const response = await fetch(`/api/plants/${id}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${session.user.id}`,
-        },
       })
 
       if (!response.ok) {
@@ -236,14 +220,13 @@ export default function PlantTrackerPage() {
   }
 
   const handleConfirmHarvest = async () => {
-    if (!harvestingPlantId || !session?.user?.id) return
+    if (!harvestingPlantId || status !== 'authenticated') return
 
     try {
       const response = await fetch(`/api/plants/${harvestingPlantId}/harvest`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.user.id}`,
         },
         body: JSON.stringify({ harvestedAmount: parseFloat(harvestedAmount) }),
       })
@@ -272,14 +255,13 @@ export default function PlantTrackerPage() {
   }
 
   const handleImageUpload = async (id: number, imageUrl: string) => {
-    if (!session?.user?.id) return
+    if (status !== 'authenticated') return
 
     try {
       const response = await fetch(`/api/plants/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.user.id}`,
         },
         body: JSON.stringify({ imageUrl }),
       })
@@ -305,14 +287,11 @@ export default function PlantTrackerPage() {
   }
 
   const handleDeleteProtocolEntry = async (plantId: number, entryId: number) => {
-    if (!session?.user?.id) return
+    if (status !== 'authenticated') return
 
     try {
       const response = await fetch(`/api/plants/${plantId}/protocol/${entryId}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${session.user.id}`,
-        },
       })
 
       if (!response.ok) {
@@ -348,14 +327,13 @@ export default function PlantTrackerPage() {
   }
 
   const handleUpdatePlant = async (updatedPlant: Partial<Plant>): Promise<void> => {
-    if (!session?.user?.id) return
+    if (status !== 'authenticated') return
 
     try {
       const response = await fetch(`/api/plants/${updatedPlant.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.user.id}`,
         },
         body: JSON.stringify(updatedPlant),
       })
@@ -387,7 +365,6 @@ export default function PlantTrackerPage() {
   }
 
   const handleOpenGallery = (id: number) => {
-    console.log(`Opening gallery for plant with id: ${id}`)
     setGalleryPlantId(id)
     setIsGalleryOpen(true)
   }
@@ -397,13 +374,18 @@ export default function PlantTrackerPage() {
     setGalleryPlantId(null)
   }
 
-  if (status === 'loading' || isLoading) {
-    return <div>Loading...</div>
+  const handleLogout = async () => {
+    await signOut({ redirect: false })
+    router.push('/login')
   }
 
-  if (status === 'unauthenticated') {
-    router.push('/login')
-    return null
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="sr-only">Loading...</span>
+      </div>
+    )
   }
 
   return (
@@ -416,14 +398,15 @@ export default function PlantTrackerPage() {
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon">
                 <Settings className="h-4 w-4" />
+                <span className="sr-only">Settings</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => setIsSettingsDialogOpen(true)}>
-                <Settings className="mr-2 h-4 w-4"   />
+                <Settings className="mr-2 h-4 w-4" />
                 <span>Settings</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => signOut()}>
+              <DropdownMenuItem onClick={handleLogout}>
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Log out</span>
               </DropdownMenuItem>
@@ -432,56 +415,66 @@ export default function PlantTrackerPage() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'active' | 'harvested')} className="w-full">
-        <TabsList className="w-full">
-          <TabsTrigger value="active" className="flex-1">Active Plants</TabsTrigger>
-          <TabsTrigger value="harvested" className="flex-1">Harvested Plants</TabsTrigger>
-        </TabsList>
-        <TabsContent value="active">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {plants.filter(plant => !plant.isHarvested).map(plant => (
-              <PlantCard
-                key={plant.id}
-                plant={plant}
-                onUpdate={handleUpdatePlant}
-                onWater={handleWaterPlant}
-                onUpdateStage={handleUpdateStage}
-                onDelete={handleDeletePlant}
-                onHarvest={handleHarvest}
-                onImageUpload={handleImageUpload}
-                onDeleteProtocolEntry={handleDeleteProtocolEntry}
-                isOpen={openPlantId === plant.id}
-                onToggle={() => handleTogglePlantCard(plant.id)}
-                onOpenGallery={handleOpenGallery}
-              />
-            ))}
-          </div>
-        </TabsContent>
-        <TabsContent value="harvested">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {plants.filter(plant => plant.isHarvested).map(plant => (
-              <PlantCard
-                key={plant.id}
-                plant={plant}
-                onUpdate={handleUpdatePlant}
-                onWater={handleWaterPlant}
-                onUpdateStage={handleUpdateStage}
-                onDelete={handleDeletePlant}
-                onHarvest={handleHarvest}
-                onImageUpload={handleImageUpload}
-                onDeleteProtocolEntry={handleDeleteProtocolEntry}
-                isOpen={openPlantId === plant.id}
-                onToggle={() => handleTogglePlantCard(plant.id)}
-                onOpenGallery={handleOpenGallery}
-              />
-            ))}
-          </div>
-        </TabsContent>
-      </Tabs>
+      {error ? (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+          <strong className="font-bold">Error: </strong>
+          <span className="block sm:inline">{error}</span>
+        </div>
+      ) : (
+        <>
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'active' | 'harvested')} className="w-full">
+            
+            <TabsList className="w-full">
+              <TabsTrigger value="active" className="flex-1">Active Plants</TabsTrigger>
+              <TabsTrigger value="harvested" className="flex-1">Harvested Plants</TabsTrigger>
+            </TabsList>
+            <TabsContent value="active">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {plants.filter(plant => !plant.isHarvested).map(plant => (
+                  <PlantCard
+                    key={plant.id}
+                    plant={plant}
+                    onUpdate={handleUpdatePlant}
+                    onWater={handleWaterPlant}
+                    onUpdateStage={handleUpdateStage}
+                    onDelete={handleDeletePlant}
+                    onHarvest={handleHarvest}
+                    onImageUpload={handleImageUpload}
+                    onDeleteProtocolEntry={handleDeleteProtocolEntry}
+                    isOpen={openPlantId === plant.id}
+                    onToggle={() => handleTogglePlantCard(plant.id)}
+                    onOpenGallery={handleOpenGallery}
+                  />
+                ))}
+              </div>
+            </TabsContent>
+            <TabsContent value="harvested">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {plants.filter(plant => plant.isHarvested).map(plant => (
+                  <PlantCard
+                    key={plant.id}
+                    plant={plant}
+                    onUpdate={handleUpdatePlant}
+                    onWater={handleWaterPlant}
+                    onUpdateStage={handleUpdateStage}
+                    onDelete={handleDeletePlant}
+                    onHarvest={handleHarvest}
+                    onImageUpload={handleImageUpload}
+                    onDeleteProtocolEntry={handleDeleteProtocolEntry}
+                    isOpen={openPlantId === plant.id}
+                    onToggle={() => handleTogglePlantCard(plant.id)}
+                    onOpenGallery={handleOpenGallery}
+                  />
+                ))}
+              </div>
+            </TabsContent>
+          </Tabs>
 
-      <div className="mt-6 flex justify-center">
-        <AddPlantDialog onAddPlant={handleAddPlant} />
-      </div>
+          <div className="mt-6 flex justify-center">
+            <AddPlantDialog onAddPlant={handleAddPlant} />
+          </div>
+        </>
+      )}
 
       <Dialog open={isHarvestDialogOpen} onOpenChange={setIsHarvestDialogOpen}>
         <DialogContent>
