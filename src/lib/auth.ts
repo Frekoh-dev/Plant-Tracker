@@ -8,21 +8,6 @@ const prisma = new PrismaClient()
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
-  session: {
-    strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-  },
-  cookies: {
-    sessionToken: {
-      name: `${process.env.NODE_ENV === 'production' ? '__Secure-' : ''}next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-      },
-    },
-  },
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -54,6 +39,42 @@ export const authOptions: NextAuthOptions = {
       }
     })
   ],
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  cookies: {
+    sessionToken: {
+      name: '__Secure-next-auth.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: true,
+        domain: process.env.NEXTAUTH_URL ? new URL(process.env.NEXTAUTH_URL).hostname : undefined
+      }
+    },
+    callbackUrl: {
+      name: '__Secure-next-auth.callback-url',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: true,
+        domain: process.env.NEXTAUTH_URL ? new URL(process.env.NEXTAUTH_URL).hostname : undefined
+      }
+    },
+    csrfToken: {
+      name: '__Host-next-auth.csrf-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: true,
+        domain: process.env.NEXTAUTH_URL ? new URL(process.env.NEXTAUTH_URL).hostname : undefined
+      }
+    }
+  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
@@ -70,40 +91,9 @@ export const authOptions: NextAuthOptions = {
       return session
     }
   },
-  events: {
-    async signIn({ user, isNewUser }) {
-      console.log('User signed in:', {
-        userId: user.id,
-        username: user.username,
-        email: user.email,
-        isNewUser,
-      })
-    },
-    async createUser({ user }) {
-      console.log('New user created:', {
-        userId: user.id,
-        username: user.username,
-        email: user.email,
-      })
-    },
-    async session({ session, token }) {
-      console.log('Session created:', {
-        userId: token.id,
-        username: token.username,
-        expires: session.expires,
-      })
-    },
-  },
   pages: {
     signIn: '/login',
   },
   debug: process.env.NODE_ENV === 'development',
   secret: process.env.NEXTAUTH_SECRET,
-}
-
-export const logSessionCookie = (response: Response) => {
-  const cookies = response.headers.get('Set-Cookie')
-  if (cookies) {
-    console.log('Session cookie set:', cookies)
-  }
 }
