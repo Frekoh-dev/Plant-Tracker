@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { useToast } from "@/components/ui/use-toast"
 import { RegisterDialog } from '@/components/RegisterDialog'
 import { Loader2 } from 'lucide-react'
@@ -31,36 +31,31 @@ export default function LoginPage() {
     document.documentElement.classList.toggle('dark', isDarkMode)
   }, [])
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+
     try {
       const result = await signIn('credentials', {
         redirect: false,
-        username: username,
-        password: password,
+        username,
+        password,
       })
 
       if (result?.error) {
-        toast({
-          title: "Authentication Failed",
-          description: "Invalid username or password. Please try again.",
-          variant: "destructive",
-        })
-      } else if (result?.ok) {
-        router.push('/plant-tracker')
-      } else {
-        toast({
-          title: "Error",
-          description: "An unexpected error occurred. Please try again.",
-          variant: "destructive",
-        })
+        throw new Error(result.error)
       }
+
+      toast({
+        title: "Success",
+        description: "You have successfully logged in.",
+      })
+      router.push('/plant-tracker')
     } catch (error) {
       console.error('Login error:', error)
       toast({
         title: "Error",
-        description: "An unexpected error occurred. Please try again.",
+        description: error instanceof Error ? error.message : "An error occurred during login.",
         variant: "destructive",
       })
     } finally {
