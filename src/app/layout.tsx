@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster"
-import SettingsMenu from '@/components/SettingsMenu'
 import { Inter } from 'next/font/google'
 import { ClientProviders } from '@/components/ClientProviders'
 
@@ -36,7 +35,6 @@ export default function RootLayout({
         <ClientProviders>
           {children}
           <Toaster />
-          <SettingsMenu />
         </ClientProviders>
       </body>
     </html>
