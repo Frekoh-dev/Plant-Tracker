@@ -6,15 +6,18 @@ import { useEffect, useState } from 'react'
 export function SessionDebug() {
   const { data: session, status } = useSession()
   const [cookieInfo, setCookieInfo] = useState<string | null>(null)
+  const [allCookies, setAllCookies] = useState<string>('')
 
   useEffect(() => {
     const sessionCookie = document.cookie
       .split('; ')
-      .find(row => row.startsWith('next-auth.session-token='))
+      .find(row => row.startsWith('next-auth.session-token=') || row.startsWith('__Secure-next-auth.session-token='))
 
     if (sessionCookie) {
       setCookieInfo(sessionCookie)
     }
+
+    setAllCookies(document.cookie)
   }, [status])
 
   return (
@@ -22,6 +25,7 @@ export function SessionDebug() {
       <h2 className="text-lg font-semibold mb-2">Session Debug Info</h2>
       <p>Status: {status}</p>
       <p>Session Cookie: {cookieInfo || 'Not found'}</p>
+      <p>All Cookies: {allCookies}</p>
       {session && (
         <pre className="mt-2 p-2 bg-white rounded">
           {JSON.stringify(session, null, 2)}
