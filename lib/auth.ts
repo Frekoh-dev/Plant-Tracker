@@ -71,7 +71,7 @@ export const authOptions: NextAuthOptions = {
     }
   },
   events: {
-    async signIn({ user, account, profile, isNewUser }) {
+    async signIn({ user, isNewUser }) {
       console.log('User signed in:', {
         userId: user.id,
         username: user.username,
