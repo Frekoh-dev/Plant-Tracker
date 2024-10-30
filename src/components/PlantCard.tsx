@@ -56,7 +56,7 @@ export function PlantCard({
 
   useEffect(() => {
     const sortedEntries = [...(plant.protocolEntries || [])].sort((a, b) => 
-      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     )
     setProtocolEntries(sortedEntries)
   }, [plant.protocolEntries])
@@ -221,6 +221,10 @@ export function PlantCard({
     return `${formattedDate} (${daysAgo})`
   }
 
+  const formatProtocolDate = (date: string) => {
+    return format(new Date(date), 'MMM d, yyyy - h:mm a')
+  }
+
   const getDaysAgo = (dateString: string | null) => {
     if (!dateString) return null
     const days = differenceInDays(new Date(), new Date(dateString))
@@ -333,15 +337,16 @@ export function PlantCard({
               </div>
             </div>
           </div>
-          <div className="flex  justify-center items-center  mt-4">
-            <Select  value={plant.stage} onValueChange={handleStageChange}>
-              <SelectTrigger  id={`stage-${plant.id}`} className="w-[180px]">
+          
+          <div className="flex justify-center items-center mt-4">
+            <Select value={plant.stage} onValueChange={handleStageChange}>
+              <SelectTrigger id={`stage-${plant.id}`} className="w-[180px]">
                 <SelectValue placeholder="Select a stage" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="SEED">Seed</SelectItem>
                 <SelectItem value="SEEDLING">Seedling</SelectItem>
-                <SelectItem  value="VEGETATIVE">Vegetative</SelectItem>
+                <SelectItem value="VEGETATIVE">Vegetative</SelectItem>
                 <SelectItem value="FLOWERING">Flowering</SelectItem>
                 <SelectItem value="RIPENING">Ripening</SelectItem>
               </SelectContent>
@@ -418,11 +423,23 @@ export function PlantCard({
               {protocolEntries.length > 0 ? (
                 <ul className="space-y-2 mt-2">
                   {protocolEntries.map((entry) => (
-                    <li key={entry.id} className="flex justify-between items-center">
-                      <span>{entry.description}</span>
-                      <Button variant="ghost" size="sm" onClick={() => handleDeleteProtocolEntry(entry.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                    <li key={entry.id} className="flex flex-col space-y-1">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-1">
+                          <span>{entry.description}</span>
+                          <p className="text-xs text-muted-foreground">
+                            {formatProtocolDate(entry.createdAt)}
+                          </p>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => handleDeleteProtocolEntry(entry.id)}
+                          className="ml-2"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </li>
                   ))}
                 </ul>
