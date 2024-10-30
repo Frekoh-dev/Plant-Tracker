@@ -15,8 +15,7 @@ export function SessionDebugger() {
       setAllCookies(cookies.join(', '))
 
       const sessionCookie = cookies.find(cookie => 
-        cookie.startsWith('next-auth.session-token=') || 
-        cookie.startsWith('__Secure-next-auth.session-token=')
+        cookie.startsWith('next-auth.session-token=')
       )
       setCookieInfo(sessionCookie || null)
 
@@ -27,9 +26,7 @@ export function SessionDebugger() {
     }
 
     getCookies()
-    // Set up an interval to check cookies every second
     const intervalId = setInterval(getCookies, 1000)
-
     return () => clearInterval(intervalId)
   }, [status])
 
@@ -43,9 +40,14 @@ export function SessionDebugger() {
       <p>NEXTAUTH_URL: {process.env.NEXT_PUBLIC_NEXTAUTH_URL}</p>
       <p>NODE_ENV: {process.env.NODE_ENV}</p>
       {session && (
-        <pre className="mt-2 p-2 bg-white rounded overflow-auto">
-          {JSON.stringify(session, null, 2)}
-        </pre>
+        <>
+          <p>Session Expires: {session.expires}</p>
+          <p>Current Time: {new Date().toISOString()}</p>
+          <p>Time Until Expiry: {session.expires ? `${Math.floor((new Date(session.expires).getTime() - Date.now()) / 1000 / 60)} minutes` : 'N/A'}</p>
+          <pre className="mt-2 p-2 bg-white rounded overflow-auto">
+            {JSON.stringify(session, null, 2)}
+          </pre>
+        </>
       )}
     </div>
   )
