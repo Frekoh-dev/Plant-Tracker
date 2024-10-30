@@ -70,6 +70,30 @@ export const authOptions: NextAuthOptions = {
       return session
     }
   },
+  events: {
+    async signIn({ user, account, profile, isNewUser }) {
+      console.log('User signed in:', {
+        userId: user.id,
+        username: user.username,
+        email: user.email,
+        isNewUser,
+      })
+    },
+    async createUser({ user }) {
+      console.log('New user created:', {
+        userId: user.id,
+        username: user.username,
+        email: user.email,
+      })
+    },
+    async session({ session, token }) {
+      console.log('Session created:', {
+        userId: token.id,
+        username: token.username,
+        expires: session.expires,
+      })
+    },
+  },
   pages: {
     signIn: '/login',
   },
