@@ -21,7 +21,6 @@ import { Settings, LogOut, Loader2 } from 'lucide-react'
 import { AddPlantDialog } from '@/components/AddPlantDialog'
 import { PictureGallery } from '@/components/PictureGallery'
 import { Plant, PlantStage, ProtocolEntry } from '@/types'
-import { SessionDebugger } from '@/components/SessionDebugger'
 
 interface PlantWithProtocol extends Plant {
   protocolEntries: ProtocolEntry[];
@@ -389,7 +388,7 @@ export default function PlantTrackerPage() {
   }
 
   if (status === 'unauthenticated') {
-    return null // This will prevent any flash of content before redirect
+    return null
   }
 
   return (
@@ -424,7 +423,6 @@ export default function PlantTrackerPage() {
           <strong className="font-bold">Error: </strong>
           <span className="block sm:inline">{error}</span>
         </div>
-      
       ) : (
         <>
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'active' | 'harvested')} className="w-full">
@@ -432,6 +430,7 @@ export default function PlantTrackerPage() {
               <TabsTrigger value="active" className="flex-1">Active Plants</TabsTrigger>
               <TabsTrigger value="harvested" className="flex-1">Harvested Plants</TabsTrigger>
             </TabsList>
+            
             <TabsContent value="active">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {plants.filter(plant => !plant.isHarvested).map(plant => (
@@ -540,7 +539,6 @@ export default function PlantTrackerPage() {
         isOpen={isGalleryOpen}
         onClose={handleCloseGallery}
       />
-      <SessionDebugger />
     </div>
   )
 }
