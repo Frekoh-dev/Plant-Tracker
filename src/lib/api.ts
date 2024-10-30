@@ -1,5 +1,4 @@
 import { getSession } from "next-auth/react"
-import type { Session } from "next-auth"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
 
@@ -22,13 +21,15 @@ interface ApiError extends Error {
 
 type ApiResponse<T> = T extends void ? void : T;
 
-// Extend the Session type to include accessToken
-interface ExtendedSession extends Session {
-  accessToken?: string;
+// Extend the Session type within the next-auth module
+declare module "next-auth" {
+  interface Session {
+    accessToken?: string;
+  }
 }
 
 async function fetchWithAuth<T>(url: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
-  const session = await getSession() as ExtendedSession | null
+  const session = await getSession()
 
   const headers = new Headers(options.headers)
   headers.set('Content-Type', 'application/json')
