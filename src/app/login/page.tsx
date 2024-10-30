@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { signIn, useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
@@ -18,7 +18,7 @@ export default function LoginPage() {
   const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
-  const { status } = useSession()
+  const { status, update } = useSession()
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -43,40 +43,28 @@ export default function LoginPage() {
       }
 
       if (result?.ok) {
-        // Wait for the session to be established
-        const checkSession = async () => {
-          const response = await fetch('/api/auth/session')
-          const sessionData = await response.json()
-          
-          if (sessionData?.user) {
-            toast({
-              title: "Success",
-              description: "You have successfully logged in.",
-            })
-            router.push('/plant-tracker')
-          } else {
-            throw new Error('Session not established')
-          }
-        }
+        // Force a session update
+        await update()
+        
+        // Check if the session was established
+        const response = await fetch('/api/auth/session')
+        const sessionData = await response.json()
 
-        // Retry a few times with increasing delays
-        for (let i = 0; i < 3; i++) {
-          try {
-            await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)))
-            await checkSession()
-            return
-          } catch {
-            console.log('Retrying session check...')
-          }
+        if (sessionData?.user) {
+          toast({
+            title: "Success",
+            description: "You have successfully logged in.",
+          })
+          router.push('/plant-tracker')
+        } else {
+          throw new Error('Session not established')
         }
-
-        throw new Error('Failed to establish session')
       }
     } catch (err) {
       console.error('Login error:', err)
       toast({
         title: "Error",
-        description: "An unexpected error occurred. Please try again.",
+        description: "Failed to establish session. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -85,9 +73,18 @@ export default function LoginPage() {
   }
 
   // If already authenticated, redirect to plant tracker
-  if (status === 'authenticated') {
-    router.push('/plant-tracker')
-    return null
+  useEffect(() => {
+    if (status === 'authenticated') {
+      router.push('/plant-tracker')
+    }
+  }, [status, router])
+
+  if (status === 'loading') {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
   }
 
   return (
