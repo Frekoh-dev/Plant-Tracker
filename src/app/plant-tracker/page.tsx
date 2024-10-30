@@ -22,6 +22,7 @@ import { AddPlantDialog } from '@/components/AddPlantDialog'
 import { PictureGallery } from '@/components/PictureGallery'
 import { Plant, PlantStage, ProtocolEntry } from '@/types'
 import { SessionDebugger } from '@/components/SessionDebugger'
+
 interface PlantWithProtocol extends Plant {
   protocolEntries: ProtocolEntry[];
   isHarvested: boolean;
@@ -75,10 +76,9 @@ export default function PlantTrackerPage() {
     if (status === 'authenticated') {
       fetchPlants()
     } else if (status === 'unauthenticated') {
-      setError('Please log in to view your plants.')
-      setIsLoading(false)
+      router.push('/login')
     }
-  }, [status, fetchPlants])
+  }, [status, fetchPlants, router])
 
   useEffect(() => {
     const root = window.document.documentElement
@@ -379,13 +379,17 @@ export default function PlantTrackerPage() {
     router.push('/login')
   }
 
-  if (isLoading) {
+  if (status === 'loading' || isLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin" />
         <span className="sr-only">Loading...</span>
       </div>
     )
+  }
+
+  if (status === 'unauthenticated') {
+    return null // This will prevent any flash of content before redirect
   }
 
   return (
@@ -420,10 +424,10 @@ export default function PlantTrackerPage() {
           <strong className="font-bold">Error: </strong>
           <span className="block sm:inline">{error}</span>
         </div>
+      
       ) : (
         <>
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'active' | 'harvested')} className="w-full">
-            
             <TabsList className="w-full">
               <TabsTrigger value="active" className="flex-1">Active Plants</TabsTrigger>
               <TabsTrigger value="harvested" className="flex-1">Harvested Plants</TabsTrigger>
@@ -536,7 +540,7 @@ export default function PlantTrackerPage() {
         isOpen={isGalleryOpen}
         onClose={handleCloseGallery}
       />
-	        <SessionDebugger />
+      <SessionDebugger />
     </div>
   )
 }
