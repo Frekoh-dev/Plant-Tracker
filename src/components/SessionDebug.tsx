@@ -3,21 +3,34 @@
 import { useSession } from 'next-auth/react'
 import { useEffect, useState } from 'react'
 
-export function SessionDebug() {
+export function SessionDebugger() {
   const { data: session, status } = useSession()
   const [cookieInfo, setCookieInfo] = useState<string | null>(null)
   const [allCookies, setAllCookies] = useState<string>('')
+  const [secureSessionCookie, setSecureSessionCookie] = useState<string | null>(null)
 
   useEffect(() => {
-    const sessionCookie = document.cookie
-      .split('; ')
-      .find(row => row.startsWith('next-auth.session-token=') || row.startsWith('__Secure-next-auth.session-token='))
+    const getCookies = () => {
+      const cookies = document.cookie.split(';').map(cookie => cookie.trim())
+      setAllCookies(cookies.join(', '))
 
-    if (sessionCookie) {
-      setCookieInfo(sessionCookie)
+      const sessionCookie = cookies.find(cookie => 
+        cookie.startsWith('next-auth.session-token=') || 
+        cookie.startsWith('__Secure-next-auth.session-token=')
+      )
+      setCookieInfo(sessionCookie || null)
+
+      const secureSessionCookieValue = cookies.find(cookie => 
+        cookie.startsWith('__Secure-next-auth.session-token=')
+      )
+      setSecureSessionCookie(secureSessionCookieValue || null)
     }
 
-    setAllCookies(document.cookie)
+    getCookies()
+    // Set up an interval to check cookies every second
+    const intervalId = setInterval(getCookies, 1000)
+
+    return () => clearInterval(intervalId)
   }, [status])
 
   return (
@@ -25,9 +38,12 @@ export function SessionDebug() {
       <h2 className="text-lg font-semibold mb-2">Session Debug Info</h2>
       <p>Status: {status}</p>
       <p>Session Cookie: {cookieInfo || 'Not found'}</p>
+      <p>Secure Session Cookie: {secureSessionCookie || 'Not found'}</p>
       <p>All Cookies: {allCookies}</p>
+      <p>NEXTAUTH_URL: {process.env.NEXT_PUBLIC_NEXTAUTH_URL}</p>
+      <p>NODE_ENV: {process.env.NODE_ENV}</p>
       {session && (
-        <pre className="mt-2 p-2 bg-white rounded">
+        <pre className="mt-2 p-2 bg-white rounded overflow-auto">
           {JSON.stringify(session, null, 2)}
         </pre>
       )}
