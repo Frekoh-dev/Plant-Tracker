@@ -4,8 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster"
 import SettingsMenu from '@/components/SettingsMenu'
 import { Inter } from 'next/font/google'
-import { Providers } from '@/components/Providers'
-import { SessionProvider } from "next-auth/react"
+import { ClientProviders } from '@/components/ClientProviders'
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -34,13 +33,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className={inter.className}>
-        <SessionProvider>
-          <Providers>
-            {children}
-            <Toaster />
-            <SettingsMenu />
-          </Providers>
-        </SessionProvider>
+        <ClientProviders>
+          {children}
+          <Toaster />
+          <SettingsMenu />
+        </ClientProviders>
       </body>
     </html>
   )
