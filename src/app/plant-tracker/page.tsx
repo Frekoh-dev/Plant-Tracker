@@ -430,7 +430,6 @@ export default function PlantTrackerPage() {
               <TabsTrigger value="active" className="flex-1">Active Plants</TabsTrigger>
               <TabsTrigger value="harvested" className="flex-1">Harvested Plants</TabsTrigger>
             </TabsList>
-            
             <TabsContent value="active">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {plants.filter(plant => !plant.isHarvested).map(plant => (
