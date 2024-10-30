@@ -10,10 +10,7 @@ export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   session: {
     strategy: "jwt",
-    maxAge: 365 * 24 * 60 * 60, // 1 year
-  },
-  jwt: {
-    maxAge: 365 * 24 * 60 * 60, // 1 year
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   cookies: {
     sessionToken: {
@@ -25,9 +22,6 @@ export const authOptions: NextAuthOptions = {
         secure: process.env.NODE_ENV === 'production',
       },
     },
-  },
-  pages: {
-    signIn: '/login',
   },
   providers: [
     CredentialsProvider({
@@ -61,13 +55,10 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   callbacks: {
-    async jwt({ token, user, account }) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id
         token.username = user.username
-      }
-      if (account) {
-        token.accessToken = account.access_token
       }
       return token
     },
@@ -76,11 +67,11 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string
         session.user.username = token.username as string
       }
-      if (token.accessToken) {
-        session.accessToken = token.accessToken as string
-      }
       return session
     }
+  },
+  pages: {
+    signIn: '/login',
   },
   debug: process.env.NODE_ENV === 'development',
   secret: process.env.NEXTAUTH_SECRET,
