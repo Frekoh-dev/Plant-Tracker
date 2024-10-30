@@ -50,7 +50,9 @@ export default function PlantDetail({ plant, isOpen, onClose, onUpdate }: PlantD
         if (value !== null) {
           if ((key as PlantDateFields).endsWith('Date') || key === 'lastWatered') {
             if (typeof value === 'string') {
-              acc[key as PlantDateFields] = new Date(value).toISOString();
+              // Ensure we're creating a valid ISO string for dates
+              const date = new Date(value)
+              acc[key as PlantDateFields] = isValid(date) ? date.toISOString() : null
             }
           } else if (key === 'stage') {
             acc.stage = value as PlantStage;
@@ -95,6 +97,12 @@ export default function PlantDetail({ plant, isOpen, onClose, onUpdate }: PlantD
     return isValid(parsedDate) ? format(parsedDate, 'yyyy-MM-dd') : ''
   }
 
+  const formatDateTime = (date: string | null | undefined) => {
+    if (!date) return ''
+    const parsedDate = parseISO(date)
+    return isValid(parsedDate) ? format(parsedDate, "yyyy-MM-dd'T'HH:mm") : ''
+  }
+
   const excludedFields: (keyof Plant)[] = ['id', 'species', 'imageUrl', 'stage', 'protocolEntries', 'isHarvested', 'harvestedAmount']
 
   const formatValue = (value: Plant[keyof Plant] | null): string => {
@@ -127,7 +135,7 @@ export default function PlantDetail({ plant, isOpen, onClose, onUpdate }: PlantD
                       id={key}
                       name={key}
                       type="datetime-local"
-                      value={value ? format(new Date(value as string), "yyyy-MM-dd'T'HH:mm") : ''}
+                      value={formatDateTime(value as string)}
                       onChange={handleInputChange}
                       className="col-span-3"
                     />

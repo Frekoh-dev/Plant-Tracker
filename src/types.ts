@@ -1,10 +1,10 @@
 export interface Plant {
   id: number;
   name: string;
-  species?: string; // Added species property as optional
+  species: string | null;
   stage: PlantStage;
   imageUrl?: string;
-  lastWatered?: string;
+  lastWatered: string | null;
   harvestedAmount?: number;
   seedDate: string | null;
   seedlingDate: string | null;
@@ -20,7 +20,7 @@ export type PlantStage = "SEED" | "SEEDLING" | "VEGETATIVE" | "FLOWERING" | "RIP
 export interface ProtocolEntry {
   id: number;
   plantId: number;
-  action: string; // Added action property
+  action: string;
   title: string;
   description: string;
   tasks: string[];
