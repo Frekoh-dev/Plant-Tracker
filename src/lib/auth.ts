@@ -1,52 +1,64 @@
-const TOKEN_KEY = 'access_token'
+import { NextAuthOptions } from "next-auth"
+import CredentialsProvider from "next-auth/providers/credentials"
+import { PrismaAdapter } from "@next-auth/prisma-adapter"
+import { PrismaClient } from "@prisma/client"
+import { compare } from "bcrypt"
 
-export function getToken(): string | null {
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem(TOKEN_KEY)
-    console.log('Retrieved token:', token ? `${token.substring(0, 8)}...` : 'null')
-    return token
-  }
-  console.log('getToken called server-side')
-  return null
-}
+const prisma = new PrismaClient()
 
-export function setToken(token: string): void {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(TOKEN_KEY, token)
-    console.log('Token set in localStorage:', `${token.substring(0, 8)}...`)
-  } else {
-    console.log('setToken called server-side')
-  }
-}
-
-export function removeToken(): void {
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem(TOKEN_KEY)
-    console.log('Token removed from localStorage')
-  } else {
-    console.log('removeToken called server-side')
-  }
-}
-
-export function isTokenExpired(token: string): boolean {
-  if (!token) {
-    console.log('No token provided to isTokenExpired')
-    return true
-  }
-
-  // For UUID tokens, we can't check expiration based on the token itself
-  // You might want to implement a separate mechanism to track token expiration
-  console.log('Token expiration check: Unable to determine expiration for UUID token')
-  return false
-}
-
-export function getTokenExpirationTime(token: string): number | null {
-  if (!token) {
-    console.log('No token provided to getTokenExpirationTime')
-    return null
-  }
-
-  // For UUID tokens, we can't determine expiration time from the token itself
-  console.log('Token expiration time: Unable to determine for UUID token')
-  return null
+export const authOptions: NextAuthOptions = {
+  adapter: PrismaAdapter(prisma),
+  session: {
+    strategy: "jwt",
+  },
+  pages: {
+    signIn: '/login',
+  },
+  providers: [
+    CredentialsProvider({
+      name: "Credentials",
+      credentials: {
+        username: { label: "Username", type: "text" },
+        password: { label: "Password", type: "password" }
+      },
+      async authorize(credentials) {
+        if (!credentials?.username || !credentials?.password) {
+          return null
+        }
+        const user = await prisma.user.findUnique({
+          where: {
+            username: credentials.username
+          }
+        })
+        if (!user) {
+          return null
+        }
+        const isPasswordValid = await compare(credentials.password, user.password)
+        if (!isPasswordValid) {
+          return null
+        }
+        return {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+        }
+      }
+    })
+  ],
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id
+        token.username = user.username
+      }
+      return token
+    },
+    async session({ session, token }) {
+      if (token) {
+        session.user.id = token.id as string
+        session.user.username = token.username as string
+      }
+      return session
+    }
+  },
 }
