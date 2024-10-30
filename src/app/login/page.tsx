@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { signIn, useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/components/ui/use-toast"
 import { RegisterDialog } from '@/components/RegisterDialog'
 import { Loader2 } from 'lucide-react'
@@ -18,44 +18,65 @@ export default function LoginPage() {
   const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
-  const { data: session } = useSession()
+  const { status } = useSession()
 
-  useEffect(() => {
-    if (session) {
-      router.push('/plant-tracker')
-    }
-  }, [session, router])
-
-  useEffect(() => {
-    const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches
-    document.documentElement.classList.toggle('dark', isDarkMode)
-  }, [])
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsLoading(true)
 
     try {
       const result = await signIn('credentials', {
-        redirect: false,
         username,
         password,
+        redirect: false,
       })
+
+      console.log('Sign in result:', result)
 
       if (result?.error) {
-        throw new Error(result.error)
+        toast({
+          title: "Authentication Failed",
+          description: "Invalid username or password. Please try again.",
+          variant: "destructive",
+        })
+        return
       }
 
-      toast({
-        title: "Success",
-        description: "You have successfully logged in.",
-      })
-      router.push('/plant-tracker')
-    } catch (error) {
-      console.error('Login error:', error)
+      if (result?.ok) {
+        // Wait for the session to be established
+        const checkSession = async () => {
+          const response = await fetch('/api/auth/session')
+          const sessionData = await response.json()
+          
+          if (sessionData?.user) {
+            toast({
+              title: "Success",
+              description: "You have successfully logged in.",
+            })
+            router.push('/plant-tracker')
+          } else {
+            throw new Error('Session not established')
+          }
+        }
+
+        // Retry a few times with increasing delays
+        for (let i = 0; i < 3; i++) {
+          try {
+            await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)))
+            await checkSession()
+            return
+          } catch {
+            console.log('Retrying session check...')
+          }
+        }
+
+        throw new Error('Failed to establish session')
+      }
+    } catch (err) {
+      console.error('Login error:', err)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "An error occurred during login.",
+        description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -63,12 +84,20 @@ export default function LoginPage() {
     }
   }
 
+  // If already authenticated, redirect to plant tracker
+  if (status === 'authenticated') {
+    router.push('/plant-tracker')
+    return null
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       <Card className="w-full max-w-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-center">Login to Plant Tracker</CardTitle>
-          <CardDescription className="text-center text-gray-600 dark:text-gray-400">Enter your credentials to access your account</CardDescription>
+          <CardDescription className="text-center text-gray-600 dark:text-gray-400">
+            Enter your credentials to access your account
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -98,7 +127,11 @@ export default function LoginPage() {
                 disabled={isLoading}
               />
             </div>
-            <Button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white" disabled={isLoading}>
+            <Button 
+              type="submit" 
+              className="w-full bg-green-600 hover:bg-green-700 text-white" 
+              disabled={isLoading}
+            >
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
