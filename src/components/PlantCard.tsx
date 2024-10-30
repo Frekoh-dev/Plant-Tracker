@@ -304,6 +304,12 @@ export function PlantCard({
             </div>
             <div className="flex-grow flex flex-col justify-center">
               <div className="space-y-2">
+                {plant.lastWatered && (
+                  <div className="flex justify-between items-center">
+                    <Label className="font-medium">Last Watered:</Label>
+                    <span className="text-sm">{formatDate(plant.lastWatered)}</span>
+                  </div>
+                )}
                 {plant.seedDate && (
                   <div className="flex justify-between items-center">
                     <Label className="font-medium">Seed Date:</Label>
@@ -330,7 +336,7 @@ export function PlantCard({
                 )}
                 {plant.ripeningDate && (
                   <div className="flex justify-between items-center">
-                    <Label  className="font-medium">Ripening Date:</Label>
+                    <Label className="font-medium">Ripening Date:</Label>
                     <span className="text-sm">{formatDate(plant.ripeningDate)}</span>
                   </div>
                 )}
