@@ -21,7 +21,7 @@ import { Settings, LogOut, Loader2 } from 'lucide-react'
 import { AddPlantDialog } from '@/components/AddPlantDialog'
 import { PictureGallery } from '@/components/PictureGallery'
 import { Plant, PlantStage, ProtocolEntry } from '@/types'
-import { SessionDebug } from '@/components/SessionDebug'
+import { SessionDebugger } from '@/components/SessionDebugger'
 interface PlantWithProtocol extends Plant {
   protocolEntries: ProtocolEntry[];
   isHarvested: boolean;
@@ -536,7 +536,7 @@ export default function PlantTrackerPage() {
         isOpen={isGalleryOpen}
         onClose={handleCloseGallery}
       />
-	        <SessionDebug />
+	        <SessionDebugger />
     </div>
   )
 }
