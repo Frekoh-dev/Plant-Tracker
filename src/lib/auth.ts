@@ -11,10 +11,17 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
-    updateAge: 24 * 60 * 60, // 24 hours
   },
-  pages: {
-    signIn: '/login',
+  cookies: {
+    sessionToken: {
+      name: `${process.env.NODE_ENV === 'production' ? '__Secure-' : ''}next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
   },
   providers: [
     CredentialsProvider({
@@ -48,13 +55,10 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   callbacks: {
-    async jwt({ token, user, account }) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id
         token.username = user.username
-      }
-      if (account) {
-        token.accessToken = account.access_token
       }
       return token
     },
@@ -63,11 +67,43 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string
         session.user.username = token.username as string
       }
-      if (token.accessToken) {
-        session.accessToken = token.accessToken as string
-      }
       return session
     }
   },
+  events: {
+    async signIn({ user, isNewUser }) {
+      console.log('User signed in:', {
+        userId: user.id,
+        username: user.username,
+        email: user.email,
+        isNewUser,
+      })
+    },
+    async createUser({ user }) {
+      console.log('New user created:', {
+        userId: user.id,
+        username: user.username,
+        email: user.email,
+      })
+    },
+    async session({ session, token }) {
+      console.log('Session created:', {
+        userId: token.id,
+        username: token.username,
+        expires: session.expires,
+      })
+    },
+  },
+  pages: {
+    signIn: '/login',
+  },
+  debug: process.env.NODE_ENV === 'development',
   secret: process.env.NEXTAUTH_SECRET,
+}
+
+export const logSessionCookie = (response: Response) => {
+  const cookies = response.headers.get('Set-Cookie')
+  if (cookies) {
+    console.log('Session cookie set:', cookies)
+  }
 }

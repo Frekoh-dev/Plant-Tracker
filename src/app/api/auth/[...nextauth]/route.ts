@@ -1,17 +1,16 @@
 import NextAuth from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { NextRequest } from 'next/server'
+import { authOptions, logSessionCookie } from "@/lib/auth"
 
-async function handler(req: NextRequest) {
-  const res = await NextAuth(authOptions)(req)
+const handler = NextAuth(authOptions)
 
-  // Log the session cookie after it's set
-  const cookies = res.headers.get('Set-Cookie')
-  if (cookies) {
-    console.log('Session cookie set:', cookies)
-  }
-
-  return res
+export async function GET(request: Request) {
+  const response = await handler(request)
+  logSessionCookie(response)
+  return response
 }
 
-export { handler as GET, handler as POST }
+export async function POST(request: Request) {
+  const response = await handler(request)
+  logSessionCookie(response)
+  return response
+}
