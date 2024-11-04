@@ -214,20 +214,20 @@ export function PlantCard({
     }
   }
 
-  const formatDate = (dateString: string | null) => {
+  const formatDate = (dateString: string | Date | null) => {
     if (!dateString) return null
-    const formattedDate = format(new Date(dateString), 'MMM d, yyyy')
-    const daysAgo = getDaysAgo(dateString)
+    const date = typeof dateString === 'string' ? new Date(dateString) : dateString
+    const formattedDate = format(date, 'MMM d, yyyy')
+    const daysAgo = getDaysAgo(date)
     return `${formattedDate} (${daysAgo})`
   }
 
-  const formatProtocolDate = (date: string) => {
-    return format(new Date(date), 'MMM d, yyyy - h:mm a')
+  const formatProtocolDate = (date: string | Date) => {
+    return format(typeof date === 'string' ? new Date(date) : date, 'MMM d, yyyy - h:mm a')
   }
 
-  const getDaysAgo = (dateString: string | null) => {
-    if (!dateString) return null
-    const days = differenceInDays(new Date(), new Date(dateString))
+  const getDaysAgo = (date: Date | string) => {
+    const days = differenceInDays(new Date(), new Date(date))
     return days === 0 ? 'Today' : `${days} day${days === 1 ? '' : 's'} ago`
   }
 
@@ -323,6 +323,7 @@ export function PlantCard({
                   </div>
                 )}
                 {plant.vegetativeDate && (
+                  
                   <div className="flex justify-between items-center">
                     <Label className="font-medium">Vegetative Date:</Label>
                     <span className="text-sm">{formatDate(plant.vegetativeDate)}</span>

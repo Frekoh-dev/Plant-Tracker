@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { PlantStage, Prisma } from '@prisma/client'
 
+
 type SanitizedPlantData = Prisma.PlantUpdateInput
 
 export async function GET(
@@ -26,7 +27,7 @@ export async function GET(
 
     const plant = await prisma.plant.findUnique({
       where: { id: plantId },
-      include: { protocolEntries: true },
+      include: { protocolEntries: true, images: true },
     })
 
     if (!plant) {
@@ -87,6 +88,7 @@ export async function PATCH(
       'imageUrl',
       'isHarvested',
       'harvestedAmount',
+      'lastWatered',
       'seedDate',
       'seedlingDate',
       'vegetativeDate',
@@ -99,33 +101,33 @@ export async function PATCH(
     for (const key of validFields) {
       if (key in body) {
         if (key === 'stage') {
-          const stageValue = body[key] as PlantStage | null
-          if (stageValue !== null && !Object.values(PlantStage).includes(stageValue)) {
+          const stageValue = body[key] as PlantStage
+          if (!Object.values(PlantStage).includes(stageValue)) {
             console.log('PATCH /api/plants/[id]: Invalid plant stage', { stage: stageValue })
             return NextResponse.json({ error: 'Invalid plant stage' }, { status: 400 })
           }
-          sanitizedData.stage = stageValue || undefined
+          sanitizedData.stage = stageValue
 
-          if (stageValue) {
-            const currentDate = new Date()
-            switch (stageValue) {
-              case PlantStage.SEED:
-                sanitizedData.seedDate = { set: currentDate }
-                break
-              case PlantStage.SEEDLING:
-                sanitizedData.seedlingDate = { set: currentDate }
-                break
-              case PlantStage.VEGETATIVE:
-                sanitizedData.vegetativeDate = { set: currentDate }
-                break
-              case PlantStage.FLOWERING:
-                sanitizedData.floweringDate = { set: currentDate }
-                break
-              case PlantStage.RIPENING:
-                sanitizedData.ripeningDate = { set: currentDate }
-                break
-            }
+          const currentDate = new Date()
+          switch (stageValue) {
+            case PlantStage.SEED:
+              sanitizedData.seedDate = { set: currentDate }
+              break
+            case PlantStage.SEEDLING:
+              sanitizedData.seedlingDate = { set: currentDate }
+              break
+            case PlantStage.VEGETATIVE:
+              sanitizedData.vegetativeDate = { set: currentDate }
+              break
+            case PlantStage.FLOWERING:
+              sanitizedData.floweringDate = { set: currentDate }
+              break
+            case PlantStage.RIPENING:
+              sanitizedData.ripeningDate = { set: currentDate }
+              break
           }
+        } else if (key === 'lastWatered') {
+          sanitizedData.lastWatered = body[key] ? { set: new Date(body[key]).toISOString() } : null
         } else if (key.endsWith('Date')) {
           switch (key) {
             case 'seedDate':
@@ -141,9 +143,9 @@ export async function PATCH(
               console.warn(`Unexpected date field: ${key}`)
           }
         } else if (key === 'isHarvested') {
-          sanitizedData[key] = { set: Boolean(body[key]) }
+          sanitizedData.isHarvested = { set: Boolean(body[key]) }
         } else if (key === 'harvestedAmount') {
-          sanitizedData[key] = { set: body[key] !== null ? Number(body[key]) : null }
+          sanitizedData.harvestedAmount = body[key] !== null ? { set: Math.round(Number(body[key])) } : { set: null }
         } else {
           // For string fields (name, species, imageUrl)
           sanitizedData[key as 'name' | 'species' | 'imageUrl'] = { set: body[key] }

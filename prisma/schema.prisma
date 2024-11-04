@@ -83,12 +83,13 @@ model ProtocolEntry {
 }
 
 model PlantImage {
-  id        Int      @id @default(autoincrement())
-  imageUrl  String
-  plant     Plant    @relation(fields: [plantId], references: [id])
-  plantId   Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           Int      @id @default(autoincrement())
+  imageUrl     String         @db.LongText
+  thumbnailUrl String         @db.LongText @default("/images/default-thumbnail.jpg")
+  plantId      Int
+  plant        Plant    @relation(fields: [plantId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 enum PlantStage {

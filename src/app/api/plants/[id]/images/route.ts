@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/app/api/auth/auth'
 import prisma from '@/lib/prisma'
+import sharp from 'sharp'
 
 export async function POST(
   request: Request,
@@ -31,15 +32,33 @@ export async function POST(
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
     }
 
-    const { imageUrl } = await request.json()
+    const formData = await request.formData()
+    const file = formData.get('file') as File | null
 
-    if (!imageUrl) {
-      return NextResponse.json({ error: 'Image URL is required' }, { status: 400 })
+    if (!file) {
+      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 })
     }
+
+    const buffer = Buffer.from(await file.arrayBuffer())
+
+    // Process full-size image
+    const fullSizeImage = await sharp(buffer)
+      .webp({ quality: 80 })
+      .toBuffer()
+
+    // Process thumbnail
+    const thumbnailImage = await sharp(buffer)
+      .resize(200, 200, { fit: 'cover' })
+      .webp({ quality: 60 })
+      .toBuffer()
+
+    const imageUrl = `data:image/webp;base64,${fullSizeImage.toString('base64')}`
+    const thumbnailUrl = `data:image/webp;base64,${thumbnailImage.toString('base64')}`
 
     const newImage = await prisma.plantImage.create({
       data: {
         imageUrl,
+        thumbnailUrl,
         plantId,
       },
     })

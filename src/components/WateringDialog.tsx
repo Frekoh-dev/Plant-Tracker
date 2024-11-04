@@ -18,7 +18,7 @@ export default function WateringDialog({ open, onOpenChange, plantId, setPlants 
     try {
       await waterPlant(plantId, usedFertilizer)
       setPlants(prevPlants => prevPlants.map(p => 
-        p.id === plantId ? { ...p, lastWatered: new Date().toISOString() } : p
+        p.id === plantId ? { ...p, lastWatered: new Date() } : p
       ))
       onOpenChange(false)
       toast({

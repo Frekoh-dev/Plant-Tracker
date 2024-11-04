@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
 import { Plant, PlantStage, ProtocolEntry } from '@/types'
-import { format, isValid, parseISO } from 'date-fns'
+import { format, isValid } from 'date-fns'
 
 interface PlantDetailProps {
   plant: Plant
@@ -17,7 +17,7 @@ interface PlantDetailProps {
 }
 
 type PlantInput = {
-  [K in keyof Plant]: Plant[K] | null;
+  [K in keyof Plant]: K extends 'lastWatered' | `${string}Date` ? Date | null : Plant[K] | null;
 };
 
 type PlantDateFields = Extract<keyof Plant, `${string}Date` | 'lastWatered'>;
@@ -30,17 +30,29 @@ export default function PlantDetail({ plant, isOpen, onClose, onUpdate }: PlantD
 
   useEffect(() => {
     const defaultedPlant = Object.fromEntries(
-      Object.entries(plant).map(([key, value]) => [key, value ?? null])
+      Object.entries(plant).map(([key, value]) => {
+        if (key.endsWith('Date') || key === 'lastWatered') {
+          return [key, value ? new Date(value) : null]
+        }
+        return [key, value ?? null]
+      })
     ) as PlantInput;
     setUpdatedPlant(defaultedPlant);
   }, [plant]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
-    setUpdatedPlant(prev => ({
-      ...prev,
-      [name]: value === '' ? null : value
-    }))
+    if (name.endsWith('Date') || name === 'lastWatered') {
+      setUpdatedPlant(prev => ({
+        ...prev,
+        [name]: value ? new Date(value) : null
+      }))
+    } else {
+      setUpdatedPlant(prev => ({
+        ...prev,
+        [name]: value === '' ? null : value
+      }))
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,10 +61,8 @@ export default function PlantDetail({ plant, isOpen, onClose, onUpdate }: PlantD
       const plantToUpdate = Object.entries(updatedPlant).reduce((acc, [key, value]) => {
         if (value !== null) {
           if ((key as PlantDateFields).endsWith('Date') || key === 'lastWatered') {
-            if (typeof value === 'string') {
-              // Ensure we're creating a valid ISO string for dates
-              const date = new Date(value)
-              acc[key as PlantDateFields] = isValid(date) ? date.toISOString() : null
+            if (value instanceof Date && isValid(value)) {
+              acc[key as PlantDateFields] = value
             }
           } else if (key === 'stage') {
             acc.stage = value as PlantStage;
@@ -91,16 +101,14 @@ export default function PlantDetail({ plant, isOpen, onClose, onUpdate }: PlantD
     }
   }
 
-  const formatDate = (date: string | null | undefined) => {
+  const formatDate = (date: Date | null | undefined) => {
     if (!date) return ''
-    const parsedDate = parseISO(date)
-    return isValid(parsedDate) ? format(parsedDate, 'yyyy-MM-dd') : ''
+    return isValid(date) ? format(date, 'yyyy-MM-dd') : ''
   }
 
-  const formatDateTime = (date: string | null | undefined) => {
+  const formatDateTime = (date: Date | null | undefined) => {
     if (!date) return ''
-    const parsedDate = parseISO(date)
-    return isValid(parsedDate) ? format(parsedDate, "yyyy-MM-dd'T'HH:mm") : ''
+    return isValid(date) ? format(date, "yyyy-MM-dd'T'HH:mm") : ''
   }
 
   const excludedFields: (keyof Plant)[] = ['id', 'species', 'imageUrl', 'stage', 'protocolEntries', 'isHarvested', 'harvestedAmount']
@@ -109,6 +117,7 @@ export default function PlantDetail({ plant, isOpen, onClose, onUpdate }: PlantD
     if (value === null || value === undefined) return ''
     if (typeof value === 'boolean') return value ? 'true' : 'false'
     if (Array.isArray(value)) return JSON.stringify(value)
+    if (value instanceof Date) return formatDate(value)
     return String(value)
   }
 
@@ -135,7 +144,7 @@ export default function PlantDetail({ plant, isOpen, onClose, onUpdate }: PlantD
                       id={key}
                       name={key}
                       type="datetime-local"
-                      value={formatDateTime(value as string)}
+                      value={formatDateTime(value as Date)}
                       onChange={handleInputChange}
                       className="col-span-3"
                     />
@@ -153,7 +162,7 @@ export default function PlantDetail({ plant, isOpen, onClose, onUpdate }: PlantD
                       id={key}
                       name={key}
                       type="date"
-                      value={formatDate(value as string)}
+                      value={formatDate(value as Date)}
                       onChange={handleInputChange}
                       className="col-span-3"
                     />

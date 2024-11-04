@@ -18,6 +18,7 @@ interface PictureGalleryProps {
 interface PlantImage {
   id: number
   imageUrl: string
+  thumbnailUrl: string
 }
 
 export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps) {
@@ -61,14 +62,12 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
     setIsUploading(true)
 
     try {
-      const resizedImage = await resizeImage(selectedFile, 800, 800)
-      const base64 = await convertToBase64(resizedImage)
+      const formData = new FormData()
+      formData.append('file', selectedFile)
+
       const response = await fetch(`/api/plants/${plantId}/images`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ imageUrl: base64 }),
+        body: formData,
       })
 
       if (!response.ok) {
@@ -120,60 +119,11 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
     }
   }
 
-  const convertToBase64 = (file: File | Blob): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.readAsDataURL(file)
-      reader.onload = () => resolve(reader.result as string)
-      reader.onerror = error => reject(error)
-    })
-  }
-
-  const resizeImage = (file: File, maxWidth: number, maxHeight: number): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
-      const img = new window.Image()
-      img.src = URL.createObjectURL(file)
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        let width = img.width
-        let height = img.height
-
-        if (width > height) {
-          if (width > maxWidth) {
-            height *= maxWidth / width
-            width = maxWidth
-          }
-        } else {
-          if (height > maxHeight) {
-            width *= maxHeight / height
-            height = maxHeight
-          }
-        }
-
-        canvas.width = width
-        canvas.height = height
-
-        const ctx = canvas.getContext('2d')
-        ctx!.drawImage(img, 0, 0, width, height)
-
-        canvas.toBlob(blob => {
-          if (blob) {
-            resolve(blob)
-          } else {
-            reject(new Error('Canvas to Blob conversion failed'))
-          }
-        }, file.type)
-      }
-      img.onerror = reject
-    })
-  }
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       setSelectedFile(file)
-      const resizedImage = await resizeImage(file, 800, 800)
-      const previewUrl = URL.createObjectURL(resizedImage)
+      const previewUrl = URL.createObjectURL(file)
       setPreviewImage(previewUrl)
     }
   }
@@ -194,7 +144,7 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
               {images.map((image) => (
                 <div key={image.id} className="relative group">
                   <Image
-                    src={image.imageUrl}
+                    src={image.thumbnailUrl}
                     alt={`Plant image ${image.id}`}
                     width={100}
                     height={100}
@@ -204,7 +154,7 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
                   <Button
                     variant="destructive"
                     size="icon"
-                    className="absolute top-1 right-1 h-6 w-6 rounded-full"
+                    className="absolute top-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleDeleteImage(image.id);

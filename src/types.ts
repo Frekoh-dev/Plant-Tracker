@@ -4,18 +4,18 @@ export interface Plant {
   species: string | null;
   stage: PlantStage;
   imageUrl?: string;
-  lastWatered: string | null;
+  lastWatered: Date | null;
   harvestedAmount?: number;
-  seedDate: string | null;
-  seedlingDate: string | null;
-  vegetativeDate: string | null;
-  floweringDate: string | null;
-  ripeningDate: string | null;
+  seedDate: Date | null;
+  seedlingDate: Date | null;
+  vegetativeDate: Date | null;
+  floweringDate: Date | null;
+  ripeningDate: Date | null;
   protocolEntries: ProtocolEntry[];
   isHarvested: boolean;
 }
 
-export type PlantStage = "SEED" | "SEEDLING" | "VEGETATIVE" | "FLOWERING" | "RIPENING";
+export type PlantStage = "SEED" | "SEEDLING" | "VEGETATIVE" | "FLOWERING" | "RIPENING" | "HARVESTED";
 
 export interface ProtocolEntry {
   id: number;
@@ -24,13 +24,16 @@ export interface ProtocolEntry {
   title: string;
   description: string;
   tasks: string[];
-  createdAt: string;
+  createdAt: Date;
 }
 
 export interface GalleryImage {
   id: number;
-  url: string;
+  imageUrl: string;
+  thumbnailUrl: string;
   plantId: number;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export type Protocol = ProtocolEntry[];
