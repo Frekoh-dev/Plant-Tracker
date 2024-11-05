@@ -32,6 +32,7 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [fullSizeImage, setFullSizeImage] = useState<string | null>(null)
   const [isLoadingFullSize, setIsLoadingFullSize] = useState(false)
+  const [isFullSizeDialogOpen, setIsFullSizeDialogOpen] = useState(false)
   const { toast } = useToast()
 
   const fetchImages = useCallback(async () => {
@@ -133,7 +134,9 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
   }
 
   const handleImageClick = async (imageId: number) => {
+    setIsFullSizeDialogOpen(true)
     setIsLoadingFullSize(true)
+    setFullSizeImage(null)
     try {
       console.log(`Fetching image with ID: ${imageId} for plant ID: ${plantId}`)
       const response = await fetch(`/api/plants/${plantId}/images/${imageId}`)
@@ -162,6 +165,11 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
     } finally {
       setIsLoadingFullSize(false)
     }
+  }
+
+  const handleCloseFullSizeDialog = () => {
+    setIsFullSizeDialogOpen(false)
+    setFullSizeImage(null)
   }
 
   return (
@@ -251,26 +259,28 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
           )}
         </div>
       </DialogContent>
-      {fullSizeImage && (
-        <Dialog open={!!fullSizeImage} onOpenChange={() => setFullSizeImage(null)}>
-          <DialogContent className="max-w-4xl max-h-[90vh] p-0">
-            <div className="relative w-full h-full" style={{ minHeight: '60vh' }}>
-              {isLoadingFullSize ? (
-                <div className="flex justify-center items-center h-full">
-                  <Loader2 className="h-8 w-8 animate-spin" />
-                </div>
-              ) : (
-                <Image
-                  src={fullSizeImage}
-                  alt="Full size image"
-                  fill
-                  style={{ objectFit: 'contain' }}
-                />
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      <Dialog open={isFullSizeDialogOpen} onOpenChange={handleCloseFullSizeDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+          <div className="relative w-full h-full" style={{ minHeight: '60vh' }}>
+            {isLoadingFullSize ? (
+              <div className="flex justify-center items-center h-full">
+                <Loader2 className="h-8 w-8 animate-spin" />
+              </div>
+            ) : fullSizeImage ? (
+              <Image
+                src={fullSizeImage}
+                alt="Full size image"
+                fill
+                style={{ objectFit: 'contain' }}
+              />
+            ) : (
+              <div className="flex justify-center items-center h-full">
+                <p>Failed to load image</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   )
 }
