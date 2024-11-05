@@ -34,6 +34,8 @@ export interface GalleryImage {
   plantId: number;
   createdAt: Date;
   updatedAt: Date;
+  width?: number;  // Add this line
+  height?: number; // Add this line
 }
 
 export type Protocol = ProtocolEntry[];

@@ -40,14 +40,19 @@ export async function POST(
     }
 
     const buffer = Buffer.from(await file.arrayBuffer())
+    const sharpImage = sharp(buffer)
+    const metadata = await sharpImage.metadata()
+
+    // Preserve orientation
+    const orientedImage = sharpImage.rotate()
 
     // Process full-size image
-    const fullSizeImage = await sharp(buffer)
+    const fullSizeImage = await orientedImage
       .webp({ quality: 80 })
       .toBuffer()
 
     // Process thumbnail
-    const thumbnailImage = await sharp(buffer)
+    const thumbnailImage = await orientedImage
       .resize(200, 200, { fit: 'cover' })
       .webp({ quality: 60 })
       .toBuffer()
@@ -60,10 +65,18 @@ export async function POST(
         imageUrl,
         thumbnailUrl,
         plantId,
+        width: metadata.width,
+        height: metadata.height,
       },
     })
 
-    return NextResponse.json(newImage, { status: 201 })
+    return NextResponse.json({
+      id: newImage.id,
+      thumbnailUrl: newImage.thumbnailUrl,
+      imageUrl: newImage.imageUrl,
+      width: newImage.width,
+      height: newImage.height,
+    }, { status: 201 })
   } catch (error) {
     console.error('Error uploading image:', error)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
@@ -104,6 +117,13 @@ export async function GET(
       },
       orderBy: {
         createdAt: 'desc',
+      },
+      select: {
+        id: true,
+        thumbnailUrl: true,
+        imageUrl: true,
+        width: true,
+        height: true,
       },
     })
 

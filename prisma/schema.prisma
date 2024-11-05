@@ -90,6 +90,8 @@ model PlantImage {
   plant        Plant    @relation(fields: [plantId], references: [id])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  width        Int?
+  height       Int?
 }
 
 enum PlantStage {

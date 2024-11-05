@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
 import { Pencil, X, Loader2, ZoomIn } from 'lucide-react'
+import { GalleryImage } from '@/types'
 
 interface PictureGalleryProps {
   plantId: number
@@ -15,23 +16,14 @@ interface PictureGalleryProps {
   onClose: () => void
 }
 
-interface PlantImage {
-  id: number
-  thumbnailUrl: string
-}
-
-interface FullSizeImage extends PlantImage {
-  imageUrl: string
-}
-
 export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps) {
-  const [images, setImages] = useState<PlantImage[]>([])
-  const [loadedImages, setLoadedImages] = useState<PlantImage[]>([])
+  const [images, setImages] = useState<GalleryImage[]>([])
+  const [loadedImages, setLoadedImages] = useState<GalleryImage[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [fullSizeImage, setFullSizeImage] = useState<string | null>(null)
+  const [fullSizeImage, setFullSizeImage] = useState<GalleryImage | null>(null)
   const [isLoadingFullSize, setIsLoadingFullSize] = useState(false)
   const [isFullSizeDialogOpen, setIsFullSizeDialogOpen] = useState(false)
   const { toast } = useToast()
@@ -54,7 +46,7 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
       if (!response.ok) {
         throw new Error('Failed to fetch images')
       }
-      const data: PlantImage[] = await response.json()
+      const data: GalleryImage[] = await response.json()
       setImages(data)
       
       // Fetch and load thumbnails one by one
@@ -100,7 +92,7 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
         throw new Error('Failed to upload image')
       }
 
-      const newImage = await response.json()
+      const newImage: GalleryImage = await response.json()
       setImages(prevImages => [...prevImages, newImage])
       setLoadedImages(prevImages => [...prevImages, newImage])
       toast({
@@ -169,12 +161,12 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
         throw new Error(`Failed to fetch full size image: ${response.statusText}`)
       }
       
-      const data: FullSizeImage = await response.json()
+      const data: GalleryImage = await response.json()
       
       if (!data.imageUrl) {
         throw new Error('Image URL is missing from the response')
       }
-      setFullSizeImage(data.imageUrl)
+      setFullSizeImage(data)
     } catch (error) {
       console.error('Error fetching full size image:', error)
       toast({
@@ -304,11 +296,11 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
               </div>
             ) : fullSizeImage ? (
               <Image
-                src={fullSizeImage}
+                src={fullSizeImage.imageUrl}
                 alt="Full size plant image"
-                fill
-                sizes="100vw"
-                style={{ objectFit: 'contain' }}
+                width={fullSizeImage.width || 800}
+                height={fullSizeImage.height || 600}
+                style={{ objectFit: 'contain', width: '100%', height: '100%' }}
               />
             ) : (
               <div className="flex justify-center items-center h-full">
