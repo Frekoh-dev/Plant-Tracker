@@ -17,8 +17,11 @@ interface PictureGalleryProps {
 
 interface PlantImage {
   id: number
-  imageUrl: string
   thumbnailUrl: string
+}
+
+interface FullSizeImage extends PlantImage {
+  imageUrl: string
 }
 
 export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps) {
@@ -28,13 +31,14 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [fullSizeImage, setFullSizeImage] = useState<string | null>(null)
+  const [isLoadingFullSize, setIsLoadingFullSize] = useState(false)
   const { toast } = useToast()
 
   const fetchImages = useCallback(async () => {
     if (!isOpen) return
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/plants/${plantId}/images`)
+      const response = await fetch(`/api/plants/${plantId}/images?thumbnailsOnly=true`)
       if (!response.ok) {
         throw new Error('Failed to fetch images')
       }
@@ -128,11 +132,43 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
     }
   }
 
+  const handleImageClick = async (imageId: number) => {
+    setIsLoadingFullSize(true)
+    try {
+      console.log(`Fetching image with ID: ${imageId} for plant ID: ${plantId}`)
+      const response = await fetch(`/api/plants/${plantId}/images/${imageId}`)
+      console.log(`Response status: ${response.status}`)
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`Error response body: ${errorText}`)
+        throw new Error(`Failed to fetch full size image: ${response.statusText}`)
+      }
+      
+      const data: FullSizeImage = await response.json()
+      console.log(`Received data:`, data)
+      
+      if (!data.imageUrl) {
+        throw new Error('Image URL is missing from the response')
+      }
+      setFullSizeImage(data.imageUrl)
+    } catch (error) {
+      console.error('Error fetching full size image:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to load full size image. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoadingFullSize(false)
+    }
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Picture Gallery</DialogTitle>
+          <DialogTitle>Picture Gallery for Plant {plantId}</DialogTitle>
         </DialogHeader>
         <div className="flex-grow overflow-y-auto pr-4">
           {isLoading ? (
@@ -149,7 +185,7 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
                     width={100}
                     height={100}
                     className="w-full h-[100px] object-cover rounded-lg cursor-pointer"
-                    onClick={() => setFullSizeImage(image.imageUrl)}
+                    onClick={() => handleImageClick(image.id)}
                   />
                   <Button
                     variant="destructive"
@@ -166,7 +202,7 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
                     variant="secondary"
                     size="icon"
                     className="absolute bottom-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => setFullSizeImage(image.imageUrl)}
+                    onClick={() => handleImageClick(image.id)}
                   >
                     <ZoomIn className="h-3 w-3" />
                   </Button>
@@ -219,12 +255,18 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
         <Dialog open={!!fullSizeImage} onOpenChange={() => setFullSizeImage(null)}>
           <DialogContent className="max-w-4xl max-h-[90vh] p-0">
             <div className="relative w-full h-full" style={{ minHeight: '60vh' }}>
-              <Image
-                src={fullSizeImage}
-                alt="Full size image"
-                fill
-                style={{ objectFit: 'contain' }}
-              />
+              {isLoadingFullSize ? (
+                <div className="flex justify-center items-center h-full">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : (
+                <Image
+                  src={fullSizeImage}
+                  alt="Full size image"
+                  fill
+                  style={{ objectFit: 'contain' }}
+                />
+              )}
             </div>
           </DialogContent>
         </Dialog>
