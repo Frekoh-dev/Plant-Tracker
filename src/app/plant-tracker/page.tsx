@@ -425,7 +425,8 @@ export default function PlantTrackerPage() {
         </div>
       ) : (
         <>
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'active' | 'harvested')} className="w-full">
+          <Tabs value={activeTab} onValueChange={(value) => 
+            setActiveTab(value as 'active' | 'harvested')} className="w-full">
             <TabsList className="w-full">
               <TabsTrigger value="active" className="flex-1">Active Plants</TabsTrigger>
               <TabsTrigger value="harvested" className="flex-1">Harvested Plants</TabsTrigger>
@@ -434,7 +435,7 @@ export default function PlantTrackerPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {plants.filter(plant => !plant.isHarvested).map(plant => (
                   <PlantCard
-                    key={plant.id}
+                    key={`active-${plant.id}`}
                     plant={plant}
                     onUpdate={handleUpdatePlant}
                     onWater={handleWaterPlant}
@@ -454,7 +455,7 @@ export default function PlantTrackerPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {plants.filter(plant => plant.isHarvested).map(plant => (
                   <PlantCard
-                    key={plant.id}
+                    key={`harvested-${plant.id}`}
                     plant={plant}
                     onUpdate={handleUpdatePlant}
                     onWater={handleWaterPlant}

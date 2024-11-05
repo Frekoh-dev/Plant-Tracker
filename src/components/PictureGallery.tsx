@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -26,6 +26,7 @@ interface FullSizeImage extends PlantImage {
 
 export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps) {
   const [images, setImages] = useState<PlantImage[]>([])
+  const [loadedImages, setLoadedImages] = useState<PlantImage[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
@@ -35,16 +36,36 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
   const [isFullSizeDialogOpen, setIsFullSizeDialogOpen] = useState(false)
   const { toast } = useToast()
 
+  const preloadImage = (src: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image()
+      img.onload = () => resolve()
+      img.onerror = () => reject(new Error(`Failed to load image: ${src}`))
+      img.src = src
+    })
+  }
+
   const fetchImages = useCallback(async () => {
     if (!isOpen) return
     setIsLoading(true)
+    setLoadedImages([])
     try {
       const response = await fetch(`/api/plants/${plantId}/images?thumbnailsOnly=true`)
       if (!response.ok) {
         throw new Error('Failed to fetch images')
       }
-      const data = await response.json()
+      const data: PlantImage[] = await response.json()
       setImages(data)
+      
+      // Fetch and load thumbnails one by one
+      for (const image of data) {
+        try {
+          await preloadImage(image.thumbnailUrl)
+          setLoadedImages(prev => [...prev, image])
+        } catch (error) {
+          console.error(`Failed to load thumbnail for image ${image.id}:`, error)
+        }
+      }
     } catch (error) {
       console.error('Error fetching images:', error)
       toast({
@@ -81,6 +102,7 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
 
       const newImage = await response.json()
       setImages(prevImages => [...prevImages, newImage])
+      setLoadedImages(prevImages => [...prevImages, newImage])
       toast({
         title: "Success",
         description: "Image uploaded successfully!",
@@ -110,6 +132,7 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
       }
 
       setImages(prevImages => prevImages.filter(img => img.id !== imageId))
+      setLoadedImages(prevImages => prevImages.filter(img => img.id !== imageId))
       toast({
         title: "Success",
         description: "Image deleted successfully!",
@@ -138,9 +161,7 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
     setIsLoadingFullSize(true)
     setFullSizeImage(null)
     try {
-      console.log(`Fetching image with ID: ${imageId} for plant ID: ${plantId}`)
       const response = await fetch(`/api/plants/${plantId}/images/${imageId}`)
-      console.log(`Response status: ${response.status}`)
       
       if (!response.ok) {
         const errorText = await response.text()
@@ -149,7 +170,6 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
       }
       
       const data: FullSizeImage = await response.json()
-      console.log(`Received data:`, data)
       
       if (!data.imageUrl) {
         throw new Error('Image URL is missing from the response')
@@ -177,22 +197,25 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
       <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Picture Gallery for Plant {plantId}</DialogTitle>
+          <DialogDescription>
+            View and manage images for this plant. Click on an image to see it in full size.
+          </DialogDescription>
         </DialogHeader>
         <div className="flex-grow overflow-y-auto pr-4">
-          {isLoading ? (
+          {isLoading && loadedImages.length === 0 ? (
             <div className="flex justify-center items-center h-64">
               <Loader2 className="h-8 w-8 animate-spin" />
             </div>
           ) : (
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
-              {images.map((image) => (
-                <div key={image.id} className="relative group">
+              {loadedImages.map((image) => (
+                <div key={image.id} className="relative group aspect-square">
                   <Image
                     src={image.thumbnailUrl}
                     alt={`Plant image ${image.id}`}
-                    width={100}
-                    height={100}
-                    className="w-full h-[100px] object-cover rounded-lg cursor-pointer"
+                    fill
+                    sizes="(max-width: 768px) 33vw, (max-width: 1200px) 25vw, 20vw"
+                    className="object-cover rounded-lg cursor-pointer"
                     onClick={() => handleImageClick(image.id)}
                   />
                   <Button
@@ -216,6 +239,11 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
                   </Button>
                 </div>
               ))}
+              {isLoading && loadedImages.length < images.length && (
+                <div className="flex justify-center items-center aspect-square">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -223,13 +251,15 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
           <Label htmlFor="image-upload" className="cursor-pointer">
             <div className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors">
               {previewImage ? (
-                <Image
-                  src={previewImage}
-                  alt="Preview"
-                  width={300}
-                  height={300}
-                  className="w-full h-full object-contain rounded-lg"
-                />
+                <div className="relative w-full h-full">
+                  <Image
+                    src={previewImage}
+                    alt="Preview"
+                    fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    className="object-contain rounded-lg"
+                  />
+                </div>
               ) : (
                 <div className="text-center">
                   <Pencil className="mx-auto h-8 w-8 text-gray-400" />
@@ -261,6 +291,12 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
       </DialogContent>
       <Dialog open={isFullSizeDialogOpen} onOpenChange={handleCloseFullSizeDialog}>
         <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+          <DialogHeader>
+            <DialogTitle className="sr-only">Full Size Image</DialogTitle>
+            <DialogDescription className="sr-only">
+              Enlarged view of the selected plant image.
+            </DialogDescription>
+          </DialogHeader>
           <div className="relative w-full h-full" style={{ minHeight: '60vh' }}>
             {isLoadingFullSize ? (
               <div className="flex justify-center items-center h-full">
@@ -269,8 +305,9 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
             ) : fullSizeImage ? (
               <Image
                 src={fullSizeImage}
-                alt="Full size image"
+                alt="Full size plant image"
                 fill
+                sizes="100vw"
                 style={{ objectFit: 'contain' }}
               />
             ) : (
