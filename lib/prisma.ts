@@ -1,27 +1,19 @@
 import { PrismaClient } from '@prisma/client'
 
-declare global {
-  // eslint-disable-next-line no-var
-  var prisma: PrismaClient | undefined
+const prismaClientSingleton = () => {
+  return new PrismaClient({
+    log: ['query', 'info', 'warn', 'error'],
+  })
 }
 
-function getPrismaClient() {
-  if (process.env.NODE_ENV === 'production') {
-    return new PrismaClient()
-  } else {
-    if (!global.prisma) {
-      global.prisma = new PrismaClient({
-        log: ['query', 'info', 'warn', 'error'],
-      })
-    }
-    return global.prisma
-  }
+type PrismaClientSingleton = ReturnType<typeof prismaClientSingleton>
+
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClientSingleton | undefined
 }
 
-const prisma = getPrismaClient()
-
-prisma.$connect()
-  .then(() => console.log('Successfully connected to the database'))
-  .catch((e) => console.error('Failed to connect to the database', e))
+const prisma = globalForPrisma.prisma ?? prismaClientSingleton()
 
 export default prisma
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma

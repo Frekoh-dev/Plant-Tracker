@@ -1,34 +1,40 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/app/api/auth/auth'
 import prisma from '@/lib/prisma'
 import sharp from 'sharp'
 
 export async function POST(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    console.log('Starting image upload process')
     const session = await getServerSession(authOptions)
 
     if (!session || !session.user) {
+      console.log('Unauthorized access attempt')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const plantId = parseInt(params.id, 10)
     if (isNaN(plantId)) {
+      console.log('Invalid plant ID:', params.id)
       return NextResponse.json({ error: 'Invalid plant ID' }, { status: 400 })
     }
 
+    console.log('Fetching plant with ID:', plantId)
     const plant = await prisma.plant.findUnique({
       where: { id: plantId },
     })
 
     if (!plant) {
+      console.log('Plant not found with ID:', plantId)
       return NextResponse.json({ error: 'Plant not found' }, { status: 404 })
     }
 
     if (plant.userId !== session.user.id) {
+      console.log('Unauthorized access to plant:', plantId)
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
     }
 
@@ -36,9 +42,11 @@ export async function POST(
     const file = formData.get('file') as File | null
 
     if (!file) {
+      console.log('No file uploaded')
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 })
     }
 
+    console.log('Processing image')
     const buffer = Buffer.from(await file.arrayBuffer())
     const sharpImage = sharp(buffer)
     const metadata = await sharpImage.metadata()
@@ -60,6 +68,7 @@ export async function POST(
     const imageUrl = `data:image/webp;base64,${fullSizeImage.toString('base64')}`
     const thumbnailUrl = `data:image/webp;base64,${thumbnailImage.toString('base64')}`
 
+    console.log('Creating new plant image record')
     const newImage = await prisma.plantImage.create({
       data: {
         imageUrl,
@@ -70,6 +79,7 @@ export async function POST(
       },
     })
 
+    console.log('Image upload successful')
     return NextResponse.json({
       id: newImage.id,
       thumbnailUrl: newImage.thumbnailUrl,
@@ -77,14 +87,22 @@ export async function POST(
       width: newImage.width,
       height: newImage.height,
     }, { status: 201 })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error uploading image:', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    if (error instanceof Error) {
+      console.error('Error message:', error.message)
+      console.error('Error stack:', error.stack)
+      return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 })
+    } else {
+      return NextResponse.json({ error: 'Internal Server Error', details: 'An unknown error occurred' }, { status: 500 })
+    }
+  } finally {
+    await prisma.$disconnect()
   }
 }
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -128,8 +146,25 @@ export async function GET(
     })
 
     return NextResponse.json(images, { status: 200 })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching images:', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    if (error instanceof Error) {
+      return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 })
+    } else {
+      return NextResponse.json({ error: 'Internal Server Error', details: 'An unknown error occurred' }, { status: 500 })
+    }
+  } finally {
+    await prisma.$disconnect()
   }
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  })
 }

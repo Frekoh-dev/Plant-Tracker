@@ -24,7 +24,10 @@ export async function GET(req: NextRequest) {
 
     const plants = await prisma.plant.findMany({
       where: { userId: userId },
-      include: { protocolEntries: true },
+      include: { 
+        protocolEntries: true,
+        images: true
+      },
     })
 
     console.log(`Found ${plants.length} plants for user ${userId}`)
@@ -35,7 +38,10 @@ export async function GET(req: NextRequest) {
     })
   } catch (error) {
     console.error('Error in /api/plants:', error)
-    return new NextResponse(JSON.stringify({ error: 'Internal Server Error' }), {
+    return new NextResponse(JSON.stringify({ 
+      error: 'Internal Server Error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     })
@@ -73,6 +79,10 @@ export async function POST(req: NextRequest) {
         userId,
         imageUrl,
       },
+      include: {
+        protocolEntries: true,
+        images: true
+      }
     })
 
     console.log('POST /api/plants: Plant created successfully', newPlant)
@@ -86,4 +96,15 @@ export async function POST(req: NextRequest) {
   } finally {
     await prisma.$disconnect()
   }
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  })
 }
