@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
-import { Pencil, X, Loader2, ZoomIn } from 'lucide-react'
+import { Pencil, X, Loader2, ZoomIn, Trash2 } from 'lucide-react'
 import { GalleryImage } from '@/types'
 
 interface PictureGalleryProps {
@@ -21,8 +21,8 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
   const [loadedImages, setLoadedImages] = useState<GalleryImage[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [previewImage, setPreviewImage] = useState<string | null>(null)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [previewImages, setPreviewImages] = useState<string[]>([])
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [fullSizeImage, setFullSizeImage] = useState<GalleryImage | null>(null)
   const [isLoadingFullSize, setIsLoadingFullSize] = useState(false)
   const [isFullSizeDialogOpen, setIsFullSizeDialogOpen] = useState(false)
@@ -49,7 +49,6 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
       const data: GalleryImage[] = await response.json()
       setImages(data)
       
-      // Fetch and load thumbnails one by one
       for (const image of data) {
         try {
           await preloadImage(image.thumbnailUrl)
@@ -75,41 +74,43 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
   }, [fetchImages])
 
   const handleImageUpload = async () => {
-    if (!selectedFile) return
+    if (selectedFiles.length === 0) return
 
     setIsUploading(true)
 
     try {
-      const formData = new FormData()
-      formData.append('file', selectedFile)
+      for (const file of selectedFiles) {
+        const formData = new FormData()
+        formData.append('file', file)
 
-      const response = await fetch(`/api/plants/${plantId}/images`, {
-        method: 'POST',
-        body: formData,
-      })
+        const response = await fetch(`/api/plants/${plantId}/images`, {
+          method: 'POST',
+          body: formData,
+        })
 
-      if (!response.ok) {
-        throw new Error('Failed to upload image')
+        if (!response.ok) {
+          throw new Error(`Failed to upload image: ${file.name}`)
+        }
+
+        const newImage: GalleryImage = await response.json()
+        setImages(prevImages => [...prevImages, newImage])
+        setLoadedImages(prevImages => [...prevImages, newImage])
       }
 
-      const newImage: GalleryImage = await response.json()
-      setImages(prevImages => [...prevImages, newImage])
-      setLoadedImages(prevImages => [...prevImages, newImage])
       toast({
         title: "Success",
-        description: "Image uploaded successfully!",
+        description: `${selectedFiles.length} image(s) uploaded successfully!`,
       })
     } catch (error) {
-      console.error('Error uploading image:', error)
+      console.error('Error uploading images:', error)
       toast({
         title: "Error",
-        description: "Failed to upload image. Please try again.",
+        description: "Failed to upload one or more images. Please try again.",
         variant: "destructive",
       })
     } finally {
       setIsUploading(false)
-      setPreviewImage(null)
-      setSelectedFile(null)
+      clearSelectedImages()
     }
   }
 
@@ -140,12 +141,15 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setSelectedFile(file)
-      const previewUrl = URL.createObjectURL(file)
-      setPreviewImage(previewUrl)
-    }
+    const files = Array.from(e.target.files || [])
+    setSelectedFiles(files)
+    const previewUrls = files.map(file => URL.createObjectURL(file))
+    setPreviewImages(previewUrls)
+  }
+
+  const clearSelectedImages = () => {
+    setSelectedFiles([])
+    setPreviewImages([])
   }
 
   const handleImageClick = async (imageId: number) => {
@@ -186,99 +190,129 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
+      <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Picture Gallery for Plant {plantId}</DialogTitle>
           <DialogDescription>
             View and manage images for this plant. Click on an image to see it in full size.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex-grow overflow-y-auto pr-4">
-          {isLoading && loadedImages.length === 0 ? (
-            <div className="flex justify-center items-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin" />
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
-              {loadedImages.map((image) => (
-                <div key={image.id} className="relative group aspect-square">
-                  <Image
-                    src={image.thumbnailUrl}
-                    alt={`Plant image ${image.id}`}
-                    fill
-                    sizes="(max-width: 768px) 33vw, (max-width: 1200px) 25vw, 20vw"
-                    className="object-cover rounded-lg cursor-pointer"
-                    onClick={() => handleImageClick(image.id)}
-                  />
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteImage(image.id);
-                    }}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    className="absolute bottom-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => handleImageClick(image.id)}
-                  >
-                    <ZoomIn className="h-3 w-3" />
-                  </Button>
+        <div className="flex-1 overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-y-auto pr-4">
+            {isLoading && loadedImages.length === 0 ? (
+              <div className="flex justify-center items-center h-64">
+                <Loader2 className="h-8 w-8 animate-spin" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {loadedImages.map((image) => (
+                  <div key={image.id} className="relative group aspect-square">
+                    <Image
+                      src={image.thumbnailUrl}
+                      alt={`Plant image ${image.id}`}
+                      fill
+                      sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
+                      className="object-cover rounded-lg cursor-pointer"
+                      onClick={() => handleImageClick(image.id)}
+                    />
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteImage(image.id);
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      className="absolute bottom-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => handleImageClick(image.id)}
+                    >
+                      <ZoomIn className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+                {isLoading && loadedImages.length < images.length && (
+                  <div className="flex justify-center items-center aspect-square">
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="mt-4 pt-4 border-t">
+            <div className="flex flex-col space-y-4">
+              <Label htmlFor="image-upload" className="cursor-pointer">
+                <div className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors overflow-hidden">
+                  {previewImages.length > 0 ? (
+                    <div className="w-full h-full relative">
+                      <div className="absolute inset-0 grid grid-cols-3 gap-1 p-2">
+                        {previewImages.slice(0, 3).map((preview, index) => (
+                          <div key={index} className="relative aspect-square">
+                            <Image
+                              src={preview}
+                              alt={`Preview ${index + 1}`}
+                              fill
+                              sizes="(max-width: 768px) 33vw, (max-width: 1200px) 25vw, 20vw"
+                              className="object-cover rounded-sm"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      {previewImages.length > 3 && (
+                        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                          <span className="text-white font-bold text-lg">+{previewImages.length - 3} more</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <Pencil className="mx-auto h-8 w-8 text-gray-400" />
+                      <span className="mt-2 block text-sm font-medium text-gray-900">
+                        {isUploading ? 'Uploading...' : 'Upload new images'}
+                      </span>
+                    </div>
+                  )}
                 </div>
-              ))}
-              {isLoading && loadedImages.length < images.length && (
-                <div className="flex justify-center items-center aspect-square">
-                  <Loader2 className="h-8 w-8 animate-spin" />
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-        <div className="mt-4">
-          <Label htmlFor="image-upload" className="cursor-pointer">
-            <div className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors">
-              {previewImage ? (
-                <div className="relative w-full h-full">
-                  <Image
-                    src={previewImage}
-                    alt="Preview"
-                    fill
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    className="object-contain rounded-lg"
-                  />
-                </div>
-              ) : (
-                <div className="text-center">
-                  <Pencil className="mx-auto h-8 w-8 text-gray-400" />
-                  <span className="mt-2 block text-sm font-medium text-gray-900">
-                    {isUploading ? 'Uploading...' : 'Upload a new image'}
+                <Input
+                  id="image-upload"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handleFileChange}
+                  disabled={isUploading}
+                />
+              </Label>
+              {previewImages.length > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500">
+                    {previewImages.length} image{previewImages.length > 1 ? 's' : ''} selected
                   </span>
+                  <div className="flex space-x-2">
+                    <Button
+                      variant="outline"
+                      onClick={clearSelectedImages}
+                      disabled={isUploading}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Clear
+                    </Button>
+                    <Button
+                      onClick={handleImageUpload}
+                      disabled={isUploading}
+                    >
+                      {isUploading ? 'Uploading...' : 'Confirm Upload'}
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
-            <Input
-              id="image-upload"
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleFileChange}
-              disabled={isUploading}
-            />
-          </Label>
-          {previewImage && (
-            <Button
-              onClick={handleImageUpload}
-              disabled={isUploading}
-              className="mt-2"
-            >
-              {isUploading ? 'Uploading...' : 'Confirm Upload'}
-            </Button>
-          )}
+          </div>
         </div>
       </DialogContent>
       <Dialog open={isFullSizeDialogOpen} onOpenChange={handleCloseFullSizeDialog}>
