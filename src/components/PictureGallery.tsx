@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
+import { Progress } from "@/components/ui/progress"
 import { Pencil, X, Loader2, ZoomIn, Trash2 } from 'lucide-react'
 import { GalleryImage } from '@/types'
 
@@ -26,6 +27,7 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
   const [fullSizeImage, setFullSizeImage] = useState<GalleryImage | null>(null)
   const [isLoadingFullSize, setIsLoadingFullSize] = useState(false)
   const [isFullSizeDialogOpen, setIsFullSizeDialogOpen] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const { toast } = useToast()
 
   const preloadImage = (src: string): Promise<void> => {
@@ -77,9 +79,11 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
     if (selectedFiles.length === 0) return
 
     setIsUploading(true)
+    setUploadProgress(0)
 
     try {
-      for (const file of selectedFiles) {
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i]
         const formData = new FormData()
         formData.append('file', file)
 
@@ -95,6 +99,9 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
         const newImage: GalleryImage = await response.json()
         setImages(prevImages => [...prevImages, newImage])
         setLoadedImages(prevImages => [...prevImages, newImage])
+
+        // Update progress
+        setUploadProgress(((i + 1) / selectedFiles.length) * 100)
       }
 
       toast({
@@ -110,6 +117,7 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
       })
     } finally {
       setIsUploading(false)
+      setUploadProgress(0)
       clearSelectedImages()
     }
   }
@@ -289,26 +297,34 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
                 />
               </Label>
               {previewImages.length > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">
-                    {previewImages.length} image{previewImages.length > 1 ? 's' : ''} selected
-                  </span>
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="outline"
-                      onClick={clearSelectedImages}
-                      disabled={isUploading}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Clear
-                    </Button>
-                    <Button
-                      onClick={handleImageUpload}
-                      disabled={isUploading}
-                    >
-                      {isUploading ? 'Uploading...' : 'Confirm Upload'}
-                    </Button>
+                <div className="flex flex-col space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">
+                      {previewImages.length} image{previewImages.length > 1 ? 's' : ''} selected
+                    </span>
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="outline"
+                        onClick={clearSelectedImages}
+                        disabled={isUploading}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Clear
+                      </Button>
+                      <Button
+                        onClick={handleImageUpload}
+                        disabled={isUploading}
+                      >
+                        {isUploading ? 'Uploading...' : 'Confirm Upload'}
+                      </Button>
+                    </div>
                   </div>
+                  {isUploading && (
+                    <div className="w-full">
+                      <Progress value={uploadProgress} className="w-full" />
+                      <p className="text-sm text-gray-500 mt-1 text-center">{Math.round(uploadProgress)}% uploaded</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
