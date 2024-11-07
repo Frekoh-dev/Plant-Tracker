@@ -112,12 +112,12 @@ export function PlantCard({
       
       if (width > height) {
         if (width > maxWidth) {
-          height *= maxWidth / width
+          height = Math.round((height * maxWidth) / width)
           width = maxWidth
         }
       } else {
         if (height > maxHeight) {
-          width *= maxHeight / height
+          width = Math.round((width * maxHeight) / height)
           height = maxHeight
         }
       }
