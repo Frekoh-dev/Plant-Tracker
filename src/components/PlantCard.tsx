@@ -133,13 +133,18 @@ export function PlantCard({
         const ctx = canvas.getContext('2d')
         ctx!.drawImage(img, 0, 0, width, height)
 
-        canvas.toBlob((blob) => {
-          if (blob) {
-            resolve(blob)
-          } else {
-            reject(new Error('Canvas to Blob conversion failed'))
-          }
-        }, file.type)
+        // Apply additional compression
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(blob)
+            } else {
+              reject(new Error('Canvas to Blob conversion failed'))
+            }
+          },
+          'image/jpeg',
+          0.7  // Adjust this value to control compression level (0.1 to 1.0)
+        )
       }
       img.onerror = reject
     })
@@ -152,7 +157,7 @@ export function PlantCard({
       try {
         const resizedImage = await resizeImage(selectedFile, 800, 800)
         const formData = new FormData()
-        formData.append('image', resizedImage, selectedFile.name)
+        formData.append('image', resizedImage, selectedFile.name.replace(/\.[^/.]+$/, ".jpg"))
 
         const response = await fetch(`/api/plants/${plant.id}/image`, {
           method: 'POST',
