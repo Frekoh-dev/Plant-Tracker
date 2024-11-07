@@ -14,6 +14,14 @@ import { useToast } from "@/components/ui/use-toast"
 import PlantDetail from './PlantDetail'
 import { format, differenceInDays } from 'date-fns'
 
+declare global {
+  interface Window {
+    Image: {
+      new (width?: number, height?: number): HTMLImageElement;
+    }
+  }
+}
+
 interface PlantCardProps {
   plant: Plant
   onWater: (id: number, withFertilizer: boolean) => void
@@ -99,7 +107,8 @@ export function PlantCard({
 
   const resizeImage = (file: File, maxWidth: number, maxHeight: number): Promise<Blob> => {
     return new Promise((resolve, reject) => {
-      const img = new window.Image()
+      const img = document.createElement('img')
+      img.crossOrigin = "anonymous"
       img.src = URL.createObjectURL(file)
       img.onload = () => {
         const canvas = document.createElement('canvas')
