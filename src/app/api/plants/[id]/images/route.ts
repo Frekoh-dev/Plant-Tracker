@@ -125,9 +125,10 @@ export async function GET(
       return NextResponse.json({ error: 'Plant not found' }, { status: 404 })
     }
 
-    if (plant.userId !== session.user.id) {
-      return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
-    }
+    // Remove the ownership check to allow viewing of other users' galleries
+    // if (plant.userId !== session.user.id) {
+    //   return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
+    // }
 
     const images = await prisma.plantImage.findMany({
       where: {

@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Settings, LogOut, Loader2 } from 'lucide-react'
+import { Settings, LogOut, Loader2, Search } from 'lucide-react'
 import { AddPlantDialog } from '@/components/AddPlantDialog'
 import { PictureGallery } from '@/components/PictureGallery'
 import { Plant, PlantStage, ProtocolEntry } from '@/types'
@@ -25,6 +25,15 @@ import { Plant, PlantStage, ProtocolEntry } from '@/types'
 interface PlantWithProtocol extends Plant {
   protocolEntries: ProtocolEntry[];
   isHarvested: boolean;
+}
+
+interface User {
+  id: string;
+  username: string;
+}
+
+interface UserWithPlants extends User {
+  plants: PlantWithProtocol[];
 }
 
 export default function PlantTrackerPage() {
@@ -40,27 +49,25 @@ export default function PlantTrackerPage() {
   const [isGalleryOpen, setIsGalleryOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<User[]>([])
+  const [selectedUser, setSelectedUser] = useState<UserWithPlants | null>(null)
+  const [isUserDialogOpen, setIsUserDialogOpen] = useState(false)
+  const [isUserLoading, setIsUserLoading] = useState(false)
+  const [openPlantIds, setOpenPlantIds] = useState<number[]>([])
   const { toast } = useToast()
   const router = useRouter()
   const { status } = useSession()
 
   const fetchPlants = useCallback(async () => {
     if (status !== 'authenticated') return
-
     try {
       setIsLoading(true)
       setError(null)
       const response = await fetch('/api/plants')
-      
       if (!response.ok) {
-        if (response.status === 401) {
-          setError('Your session has expired. Please refresh the page or log in again.')
-        } else {
-          throw new Error(`Failed to fetch plants: ${response.status}`)
-        }
-        return
+        throw new Error(`Failed to fetch plants: ${response.status}`)
       }
-      
       const data: PlantWithProtocol[] = await response.json()
       setPlants(data)
     } catch (error) {
@@ -92,26 +99,16 @@ export default function PlantTrackerPage() {
 
   const handleAddPlant = async (newPlant: Plant) => {
     if (status !== 'authenticated') return
-
     try {
       const response = await fetch('/api/plants', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newPlant),
       })
-
-      if (!response.ok) {
-        throw new Error('Failed to add plant')
-      }
-
+      if (!response.ok) throw new Error('Failed to add plant')
       const addedPlant: PlantWithProtocol = await response.json()
       setPlants(prevPlants => [...prevPlants, addedPlant])
-      toast({
-        title: "Success",
-        description: "Plant added successfully!",
-      })
+      toast({ title: "Success", description: "Plant added successfully!" })
     } catch (error) {
       console.error('Error adding plant:', error)
       toast({
@@ -124,20 +121,13 @@ export default function PlantTrackerPage() {
 
   const handleWaterPlant = async (id: number, withFertilizer: boolean) => {
     if (status !== 'authenticated') return
-
     try {
       const response = await fetch(`/api/plants/${id}/water`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ withFertilizer }),
       })
-
-      if (!response.ok) {
-        throw new Error('Failed to water plant')
-      }
-
+      if (!response.ok) throw new Error('Failed to water plant')
       const updatedPlant: PlantWithProtocol = await response.json()
       setPlants(prevPlants => prevPlants.map(plant => plant.id === id ? updatedPlant : plant))
       toast({
@@ -156,26 +146,16 @@ export default function PlantTrackerPage() {
 
   const handleUpdateStage = async (id: number, stage: PlantStage) => {
     if (status !== 'authenticated') return
-
     try {
       const response = await fetch(`/api/plants/${id}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stage }),
       })
-
-      if (!response.ok) {
-        throw new Error('Failed to update plant stage')
-      }
-
+      if (!response.ok) throw new Error('Failed to update plant stage')
       const updatedPlant: PlantWithProtocol = await response.json()
       setPlants(prevPlants => prevPlants.map(plant => plant.id === id ? updatedPlant : plant))
-      toast({
-        title: "Success",
-        description: "Plant stage updated successfully!",
-      })
+      toast({ title: "Success", description: "Plant stage updated successfully!" })
     } catch (error) {
       console.error('Error updating plant stage:', error)
       toast({
@@ -188,21 +168,11 @@ export default function PlantTrackerPage() {
 
   const handleDeletePlant = async (id: number) => {
     if (status !== 'authenticated') return
-
     try {
-      const response = await fetch(`/api/plants/${id}`, {
-        method: 'DELETE',
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to delete plant')
-      }
-
+      const response = await fetch(`/api/plants/${id}`, { method: 'DELETE' })
+      if (!response.ok) throw new Error('Failed to delete plant')
       setPlants(prevPlants => prevPlants.filter(plant => plant.id !== id))
-      toast({
-        title: "Success",
-        description: "Plant deleted successfully!",
-      })
+      toast({ title: "Success", description: "Plant deleted successfully!" })
     } catch (error) {
       console.error('Error deleting plant:', error)
       toast({
@@ -213,36 +183,26 @@ export default function PlantTrackerPage() {
     }
   }
 
-  const handleHarvest = async (id: number) => {
+  const handleHarvest = (id: number) => {
     setHarvestingPlantId(id)
     setIsHarvestDialogOpen(true)
   }
 
   const handleConfirmHarvest = async () => {
     if (!harvestingPlantId || status !== 'authenticated') return
-
     try {
       const response = await fetch(`/api/plants/${harvestingPlantId}/harvest`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ harvestedAmount: parseFloat(harvestedAmount) }),
       })
-
-      if (!response.ok) {
-        throw new Error('Failed to harvest plant')
-      }
-
+      if (!response.ok) throw new Error('Failed to harvest plant')
       const updatedPlant: PlantWithProtocol = await response.json()
       setPlants(prevPlants => prevPlants.map(plant => plant.id === harvestingPlantId ? updatedPlant : plant))
       setIsHarvestDialogOpen(false)
       setHarvestingPlantId(null)
       setHarvestedAmount('')
-      toast({
-        title: "Success",
-        description: "Plant harvested successfully!",
-      })
+      toast({ title: "Success", description: "Plant harvested successfully!" })
     } catch (error) {
       console.error('Error harvesting plant:', error)
       toast({
@@ -255,26 +215,16 @@ export default function PlantTrackerPage() {
 
   const handleImageUpload = async (id: number, imageUrl: string) => {
     if (status !== 'authenticated') return
-
     try {
       const response = await fetch(`/api/plants/${id}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ imageUrl }),
       })
-
-      if (!response.ok) {
-        throw new Error('Failed to update plant image')
-      }
-
+      if (!response.ok) throw new Error('Failed to update plant image')
       const updatedPlant: PlantWithProtocol = await response.json()
       setPlants(prevPlants => prevPlants.map(plant => plant.id === id ? updatedPlant : plant))
-      toast({
-        title: "Success",
-        description: "Plant image updated successfully!",
-      })
+      toast({ title: "Success", description: "Plant image updated successfully!" })
     } catch (error) {
       console.error('Error updating plant image:', error)
       toast({
@@ -287,16 +237,9 @@ export default function PlantTrackerPage() {
 
   const handleDeleteProtocolEntry = async (plantId: number, entryId: number) => {
     if (status !== 'authenticated') return
-
     try {
-      const response = await fetch(`/api/plants/${plantId}/protocol/${entryId}`, {
-        method: 'DELETE',
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to delete protocol entry')
-      }
-
+      const response = await fetch(`/api/plants/${plantId}/protocol/${entryId}`, { method: 'DELETE' })
+      if (!response.ok) throw new Error('Failed to delete protocol entry')
       setPlants(prevPlants => prevPlants.map(plant => {
         if (plant.id === plantId) {
           return {
@@ -306,11 +249,7 @@ export default function PlantTrackerPage() {
         }
         return plant
       }))
-
-      toast({
-        title: "Success",
-        description: "Protocol entry deleted successfully!",
-      })
+      toast({ title: "Success", description: "Protocol entry deleted successfully!" })
     } catch (error) {
       console.error('Error deleting protocol entry:', error)
       toast({
@@ -327,31 +266,23 @@ export default function PlantTrackerPage() {
 
   const handleUpdatePlant = async (updatedPlant: Partial<Plant>): Promise<void> => {
     if (status !== 'authenticated') return
-
     try {
       const response = await fetch(`/api/plants/${updatedPlant.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedPlant),
       })
-
       if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || 'Failed to update plant')
       }
-
       const updated: PlantWithProtocol = await response.json()
       setPlants(prevPlants =>
         prevPlants.map(plant =>
           plant.id === updated.id ? { ...plant, ...updated } : plant
         )
       )
-      toast({
-        title: "Success",
-        description: "Plant updated successfully!",
-      })
+      toast({ title: "Success", description: "Plant updated successfully!" })
     } catch (error) {
       console.error('Error updating plant:', error)
       toast({
@@ -373,10 +304,82 @@ export default function PlantTrackerPage() {
     setGalleryPlantId(null)
   }
 
-  const handleLogout = async () => {
-    await signOut({ redirect: false })
-    router.push('/login')
+  const handleLogout = useCallback(async () => {
+    try {
+      await signOut({ redirect: false })
+      router.push('/login')
+    } catch (error) {
+      console.error('Error during logout:', error)
+      toast({
+        title: "Error",
+        description: "Failed to log out. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }, [router, toast])
+
+  const handleSearch = useCallback(async (query: string) => {
+    if (query.trim() === '') {
+      setSearchResults([])
+      return
+    }
+    try {
+      const response = await fetch(`/api/users/search?query=${encodeURIComponent(query)}`)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to search users')
+      }
+      const data: User[] = await response.json()
+      setSearchResults(data)
+      
+      console.log(`User search for "${query}" returned ${data.length} results`)
+    } catch (error) {
+      console.error('Error searching users:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to search users. Please try again.",
+        variant: "destructive",
+      })
+      setSearchResults([])
+    }
+  }, [toast])
+
+  const fetchUserPlants = async (userId: string) => {
+    setIsUserLoading(true)
+    try {
+      const response = await fetch(`/api/users/${userId}/plants`)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to fetch user plants')
+      }
+      const data: UserWithPlants = await response.json()
+      setSelectedUser(data)
+      setIsUserDialogOpen(true)
+    } catch (error) {
+      console.error('Error fetching user plants:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to fetch user plants. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUserLoading(false)
+    }
   }
+
+  const handleToggleUserPlant = (plantId: number) => {
+    setOpenPlantIds(prevIds => prevIds.includes(plantId)
+        ? prevIds.filter(id => id !== plantId)
+        : [...prevIds, plantId]
+    )
+  }
+
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      handleSearch(searchQuery)
+    }, 300)
+    return () => clearTimeout(debounceTimer)
+  }, [searchQuery, handleSearch])
 
   if (status === 'loading' || isLoading) {
     return (
@@ -393,29 +396,58 @@ export default function PlantTrackerPage() {
 
   return (
     <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">My Plants</h1>
-        
-        <div className="flex items-center space-x-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon">
-                <Settings className="h-4 w-4" />
-                <span className="sr-only">Settings</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setIsSettingsDialogOpen(true)}>
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Settings</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Log out</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+      <div className="flex flex-col mb-6 space-y-4">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold">My Plants</h1>
+          <div className="flex items-center space-x-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <Settings className="h-4 w-4" />
+                  <span className="sr-only">Settings</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setIsSettingsDialogOpen(true)}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Settings</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
+        <div className="relative">
+          <Input
+            type="text"
+            placeholder="Search users..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        </div>
+        {searchResults.length > 0 && (
+          <div className="bg-background border rounded-md shadow-md p-2">
+            <h2 className="text-lg font-semibold mb-2">Search Results</h2>
+            <ul>
+              {searchResults.map((user) => (
+                <li key={user.id} className="py-1">
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start" 
+                    onClick={() => fetchUserPlants(user.id)}
+                  >
+                    {user.username}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       {error ? (
@@ -425,8 +457,7 @@ export default function PlantTrackerPage() {
         </div>
       ) : (
         <>
-          <Tabs value={activeTab} onValueChange={(value) => 
-            setActiveTab(value as 'active' | 'harvested')} className="w-full">
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'active' | 'harvested')} className="w-full">
             <TabsList className="w-full">
               <TabsTrigger value="active" className="flex-1">Active Plants</TabsTrigger>
               <TabsTrigger value="harvested" className="flex-1">Harvested Plants</TabsTrigger>
@@ -472,7 +503,6 @@ export default function PlantTrackerPage() {
               </div>
             </TabsContent>
           </Tabs>
-
           <div className="mt-6 flex justify-center">
             <AddPlantDialog onAddPlant={handleAddPlant} />
           </div>
@@ -510,9 +540,7 @@ export default function PlantTrackerPage() {
           <div className="grid w-full items-center gap-4">
             <div className="flex flex-col space-y-1.5">
               <Label htmlFor="theme">Theme</Label>
-              <RadioGroup id="theme" value={theme} onValueChange={(value) => 
-                setTheme(value as 'light' | 'dark' | 'system')
-              }>
+              <RadioGroup id="theme" value={theme} onValueChange={(value) => setTheme(value as 'light' | 'dark' | 'system')}>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="light" id="light" />
                   <Label htmlFor="light">Light</Label>
@@ -534,10 +562,51 @@ export default function PlantTrackerPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{selectedUser?.username}&apos;s Plants</DialogTitle>
+          </DialogHeader>
+          {isUserLoading ? (
+            <div className="flex justify-center items-center h-32">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : selectedUser ? (
+            <div className="flex-1 overflow-y-auto pr-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {selectedUser.plants.map((plant) => (
+                  <PlantCard
+                    key={plant.id}
+                    plant={plant}
+                    onUpdate={async () => {}}
+                    onWater={async () => {}}
+                    onUpdateStage={async () => {}}
+                    onDelete={async () => {}}
+                    onHarvest={() => {}}
+                    onImageUpload={async () => {}}
+                    onDeleteProtocolEntry={async () => {}}
+                    isOpen={openPlantIds.includes(plant.id)}
+                    onToggle={() => handleToggleUserPlant(plant.id)}
+                    onOpenGallery={handleOpenGallery}
+                    readOnly
+                  />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p>No plants found for this user.</p>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setIsUserDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <PictureGallery
         plantId={galleryPlantId || 0}
         isOpen={isGalleryOpen}
         onClose={handleCloseGallery}
+        readOnly={selectedUser !== null}
       />
     </div>
   )

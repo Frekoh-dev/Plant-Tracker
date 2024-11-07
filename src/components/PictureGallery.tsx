@@ -15,20 +15,22 @@ interface PictureGalleryProps {
   plantId: number
   isOpen: boolean
   onClose: () => void
+  readOnly: boolean
 }
 
-export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps) {
+export function PictureGallery({ plantId, isOpen, onClose, readOnly }: PictureGalleryProps) {
   const [images, setImages] = useState<GalleryImage[]>([])
   const [loadedImages, setLoadedImages] = useState<GalleryImage[]>([])
-  const [isUploading, setIsUploading] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [previewImages, setPreviewImages] = useState<string[]>([])
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [fullSizeImage, setFullSizeImage] = useState<GalleryImage | null>(null)
   const [isLoadingFullSize, setIsLoadingFullSize] = useState(false)
   const [isFullSizeDialogOpen, setIsFullSizeDialogOpen] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
   const { toast } = useToast()
+
+  const [isUploading, setIsUploading] = useState(false)
+  const [previewImages, setPreviewImages] = useState<string[]>([])
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [uploadProgress, setUploadProgress] = useState(0)
 
   const preloadImage = (src: string): Promise<void> => {
     return new Promise((resolve, reject) => {
@@ -74,6 +76,54 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
   useEffect(() => {
     fetchImages()
   }, [fetchImages])
+
+  const handleImageClick = async (imageId: number) => {
+    setIsFullSizeDialogOpen(true)
+    setIsLoadingFullSize(true)
+    setFullSizeImage(null)
+    try {
+      const response = await fetch(`/api/plants/${plantId}/images/${imageId}`)
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`Error response body: ${errorText}`)
+        throw new Error(`Failed to fetch full size image: ${response.statusText}`)
+      }
+      
+      const data: GalleryImage = await response.json()
+      
+      if (!data.imageUrl) {
+        throw new Error('Image URL is missing from the response')
+      }
+      setFullSizeImage(data)
+    } catch (error) {
+      console.error('Error fetching full size image:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to load full size image. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoadingFullSize(false)
+    }
+  }
+
+  const handleCloseFullSizeDialog = () => {
+    setIsFullSizeDialogOpen(false)
+    setFullSizeImage(null)
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    setSelectedFiles(files)
+    const previewUrls = files.map(file => URL.createObjectURL(file))
+    setPreviewImages(previewUrls)
+  }
+
+  const clearSelectedImages = () => {
+    setSelectedFiles([])
+    setPreviewImages([])
+  }
 
   const handleImageUpload = async () => {
     if (selectedFiles.length === 0) return
@@ -148,61 +198,13 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
     }
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    setSelectedFiles(files)
-    const previewUrls = files.map(file => URL.createObjectURL(file))
-    setPreviewImages(previewUrls)
-  }
-
-  const clearSelectedImages = () => {
-    setSelectedFiles([])
-    setPreviewImages([])
-  }
-
-  const handleImageClick = async (imageId: number) => {
-    setIsFullSizeDialogOpen(true)
-    setIsLoadingFullSize(true)
-    setFullSizeImage(null)
-    try {
-      const response = await fetch(`/api/plants/${plantId}/images/${imageId}`)
-      
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error(`Error response body: ${errorText}`)
-        throw new Error(`Failed to fetch full size image: ${response.statusText}`)
-      }
-      
-      const data: GalleryImage = await response.json()
-      
-      if (!data.imageUrl) {
-        throw new Error('Image URL is missing from the response')
-      }
-      setFullSizeImage(data)
-    } catch (error) {
-      console.error('Error fetching full size image:', error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to load full size image. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoadingFullSize(false)
-    }
-  }
-
-  const handleCloseFullSizeDialog = () => {
-    setIsFullSizeDialogOpen(false)
-    setFullSizeImage(null)
-  }
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Picture Gallery for Plant {plantId}</DialogTitle>
           <DialogDescription>
-            View and manage images for this plant. Click on an image to see it in full size.
+            View {readOnly ? "" : "and manage "}images for this plant. Click on an image to see it in full size.
           </DialogDescription>
         </DialogHeader>
         <div className="flex-1 overflow-hidden flex flex-col">
@@ -223,17 +225,19 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
                       className="object-cover rounded-lg cursor-pointer"
                       onClick={() => handleImageClick(image.id)}
                     />
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteImage(image.id);
-                      }}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
+                    {!readOnly && (
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteImage(image.id);
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
                     <Button
                       variant="secondary"
                       size="icon"
@@ -252,83 +256,85 @@ export function PictureGallery({ plantId, isOpen, onClose }: PictureGalleryProps
               </div>
             )}
           </div>
-          <div className="mt-4 pt-4 border-t">
-            <div className="flex flex-col space-y-4">
-              <Label htmlFor="image-upload" className="cursor-pointer">
-                <div className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors overflow-hidden">
-                  {previewImages.length > 0 ? (
-                    <div className="w-full h-full relative">
-                      <div className="absolute inset-0 grid grid-cols-3 gap-1 p-2">
-                        {previewImages.slice(0, 3).map((preview, index) => (
-                          <div key={index} className="relative aspect-square">
-                            <Image
-                              src={preview}
-                              alt={`Preview ${index + 1}`}
-                              fill
-                              sizes="(max-width: 768px) 33vw, (max-width: 1200px) 25vw, 20vw"
-                              className="object-cover rounded-sm"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                      {previewImages.length > 3 && (
-                        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                          <span className="text-white font-bold text-lg">+{previewImages.length - 3} more</span>
+          {!readOnly && (
+            <div className="mt-4 pt-4 border-t">
+              <div className="flex flex-col space-y-4">
+                <Label htmlFor="image-upload" className="cursor-pointer">
+                  <div className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors overflow-hidden">
+                    {previewImages.length > 0 ? (
+                      <div className="w-full h-full relative">
+                        <div className="absolute inset-0 grid grid-cols-3 gap-1 p-2">
+                          {previewImages.slice(0, 3).map((preview, index) => (
+                            <div key={index} className="relative aspect-square">
+                              <Image
+                                src={preview}
+                                alt={`Preview ${index + 1}`}
+                                fill
+                                sizes="(max-width: 768px) 33vw, (max-width: 1200px) 25vw, 20vw"
+                                className="object-cover rounded-sm"
+                              />
+                            </div>
+                          ))}
                         </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center">
-                      <Pencil className="mx-auto h-8 w-8 text-gray-400" />
-                      <span className="mt-2 block text-sm font-medium text-gray-900">
-                        {isUploading ? 'Uploading...' : 'Upload new images'}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <Input
-                  id="image-upload"
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={handleFileChange}
-                  disabled={isUploading}
-                />
-              </Label>
-              {previewImages.length > 0 && (
-                <div className="flex flex-col space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">
-                      {previewImages.length} image{previewImages.length > 1 ? 's' : ''} selected
-                    </span>
-                    <div className="flex space-x-2">
-                      <Button
-                        variant="outline"
-                        onClick={clearSelectedImages}
-                        disabled={isUploading}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Clear
-                      </Button>
-                      <Button
-                        onClick={handleImageUpload}
-                        disabled={isUploading}
-                      >
-                        {isUploading ? 'Uploading...' : 'Confirm Upload'}
-                      </Button>
-                    </div>
+                        {previewImages.length > 3 && (
+                          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                            <span className="text-white font-bold text-lg">+{previewImages.length - 3} more</span>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center">
+                        <Pencil className="mx-auto h-8 w-8 text-gray-400" />
+                        <span className="mt-2 block text-sm font-medium text-gray-900">
+                          {isUploading ? 'Uploading...' : 'Upload new images'}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  {isUploading && (
-                    <div className="w-full">
-                      <Progress value={uploadProgress} className="w-full" />
-                      <p className="text-sm text-gray-500 mt-1 text-center">{Math.round(uploadProgress)}% uploaded</p>
+                  <Input
+                    id="image-upload"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={handleFileChange}
+                    disabled={isUploading}
+                  />
+                </Label>
+                {previewImages.length > 0 && (
+                  <div className="flex flex-col space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-500">
+                        {previewImages.length} image{previewImages.length > 1 ? 's' : ''} selected
+                      </span>
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="outline"
+                          onClick={clearSelectedImages}
+                          disabled={isUploading}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Clear
+                        </Button>
+                        <Button
+                          onClick={handleImageUpload}
+                          disabled={isUploading}
+                        >
+                          {isUploading ? 'Uploading...' : 'Confirm Upload'}
+                        </Button>
+                      </div>
                     </div>
-                  )}
-                </div>
-              )}
+                    {isUploading && (
+                      <div className="w-full">
+                        <Progress value={uploadProgress} className="w-full" />
+                        <p className="text-sm text-gray-500 mt-1 text-center">{Math.round(uploadProgress)}% uploaded</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </DialogContent>
       <Dialog open={isFullSizeDialogOpen} onOpenChange={handleCloseFullSizeDialog}>

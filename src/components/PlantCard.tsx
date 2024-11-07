@@ -26,6 +26,7 @@ interface PlantCardProps {
   isOpen: boolean
   onToggle: () => void
   onOpenGallery: (id: number) => void
+  readOnly?: boolean
 }
 
 export function PlantCard({
@@ -39,7 +40,8 @@ export function PlantCard({
   onUpdate,
   isOpen,
   onToggle,
-  onOpenGallery
+  onOpenGallery,
+  readOnly = false
 }: PlantCardProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isImageUploadDialogOpen, setIsImageUploadDialogOpen] = useState(false)
@@ -274,33 +276,35 @@ export function PlantCard({
                   <Image src={plant.imageUrl} alt={plant.name} width={128} height={128} className="object-cover w-full h-full" />
                 )}
               </div>
-              <Dialog open={isImageUploadDialogOpen} onOpenChange={setIsImageUploadDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    size="icon" 
-                    className="absolute bottom-0 right-0 z-10 bg-gray-800 hover:bg-gray-700 border-gray-700 text-white opacity-50"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Upload Image</DialogTitle>
-                  </DialogHeader>
-                  <form onSubmit={handleImageUpload}>
-                    <div className="grid w-full max-w-sm items-center gap-1.5">
-                      <Label htmlFor="picture">Picture</Label>
-                      <Input id="picture" type="file" onChange={handleFileChange} />
-                    </div>
-                    <DialogFooter className="mt-4">
-                      <Button type="submit" disabled={isUploading || !selectedFile}>
-                        {isUploading ? 'Uploading...' : 'Upload'}
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </DialogContent>
-              </Dialog>
+              {!readOnly && (
+                <Dialog open={isImageUploadDialogOpen} onOpenChange={setIsImageUploadDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      className="absolute bottom-0 right-0 z-10 bg-gray-800 hover:bg-gray-700 border-gray-700 text-white opacity-50"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Upload Image</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={handleImageUpload}>
+                      <div className="grid w-full max-w-sm items-center gap-1.5">
+                        <Label htmlFor="picture">Picture</Label>
+                        <Input id="picture" type="file" onChange={handleFileChange} />
+                      </div>
+                      <DialogFooter className="mt-4">
+                        <Button type="submit" disabled={isUploading || !selectedFile}>
+                          {isUploading ? 'Uploading...' : 'Upload'}
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              )}
             </div>
             <div className="flex-grow flex flex-col justify-center">
               <div className="space-y-2">
@@ -323,7 +327,6 @@ export function PlantCard({
                   </div>
                 )}
                 {plant.vegetativeDate && (
-                  
                   <div className="flex justify-between items-center">
                     <Label className="font-medium">Vegetative Date:</Label>
                     <span className="text-sm">{formatDate(plant.vegetativeDate)}</span>
@@ -345,20 +348,22 @@ export function PlantCard({
             </div>
           </div>
           
-          <div className="flex justify-center items-center mt-4">
-            <Select value={plant.stage} onValueChange={handleStageChange}>
-              <SelectTrigger id={`stage-${plant.id}`} className="w-[180px]">
-                <SelectValue placeholder="Select a stage" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="SEED">Seed</SelectItem>
-                <SelectItem value="SEEDLING">Seedling</SelectItem>
-                <SelectItem value="VEGETATIVE">Vegetative</SelectItem>
-                <SelectItem value="FLOWERING">Flowering</SelectItem>
-                <SelectItem value="RIPENING">Ripening</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {!readOnly && (
+            <div className="flex justify-center items-center mt-4">
+              <Select value={plant.stage} onValueChange={handleStageChange}>
+                <SelectTrigger id={`stage-${plant.id}`} className="w-[180px]">
+                  <SelectValue placeholder="Select a stage" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="SEED">Seed</SelectItem>
+                  <SelectItem value="SEEDLING">Seedling</SelectItem>
+                  <SelectItem value="VEGETATIVE">Vegetative</SelectItem>
+                  <SelectItem value="FLOWERING">Flowering</SelectItem>
+                  <SelectItem value="RIPENING">Ripening</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div>
             {plant.isHarvested && plant.harvestedAmount && (
               <p>Harvested Amount: {plant.harvestedAmount}g</p>
@@ -366,7 +371,7 @@ export function PlantCard({
           </div>
           
           <div className="space-y-2 mt-4">
-            {!plant.isHarvested && (
+            {!readOnly && !plant.isHarvested && (
               <div className="flex space-x-2">
                 <Dialog open={isWaterDialogOpen} onOpenChange={setIsWaterDialogOpen}>
                   <DialogTrigger asChild>
@@ -403,10 +408,12 @@ export function PlantCard({
               <ImageIcon className="h-4 w-4 mr-2" />
               Open Gallery
             </Button>
-            <Button variant="outline" className="w-full bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900 dark:hover:bg-yellow-800 dark:text-yellow-100 shadow-[0_0_10px_rgba(0,0,0,0.3)] hover:shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-shadow duration-300" onClick={() => setIsDetailOpen(true)}>
-              <FileText className="h-4 w-4 mr-2" />
-              Plant Details
-            </Button>
+            {!readOnly && (
+              <Button variant="outline" className="w-full bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900 dark:hover:bg-yellow-800 dark:text-yellow-100 shadow-[0_0_10px_rgba(0,0,0,0.3)] hover:shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-shadow duration-300" onClick={() => setIsDetailOpen(true)}>
+                <FileText className="h-4 w-4 mr-2" />
+                Plant Details
+              </Button>
+            )}
           </div>
 
           <div className="mt-4">
@@ -438,14 +445,16 @@ export function PlantCard({
                             {formatProtocolDate(entry.createdAt)}
                           </p>
                         </div>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => handleDeleteProtocolEntry(entry.id)}
-                          className="ml-2"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {!readOnly && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleDeleteProtocolEntry(entry.id)}
+                            className="ml-2"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </li>
                   ))}
@@ -456,36 +465,40 @@ export function PlantCard({
             </div>
           </div>
           
-          <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="w-full bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:hover:bg-red-800 dark:text-red-100">
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete Plant
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Delete Plant</DialogTitle>
-                  <DialogDescription>
-                    Are you sure you want to delete this plant? This action cannot be undone.
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>
-                  <Button variant="destructive" onClick={() => { onDelete(plant.id); setIsDeleteDialogOpen(false); }}>Delete</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
+          {!readOnly && (
+            <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="w-full bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:hover:bg-red-800 dark:text-red-100">
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Plant
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Delete Plant</DialogTitle>
+                    <DialogDescription>
+                      Are you sure you want to delete this plant? This action cannot be undone.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>
+                    <Button variant="destructive" onClick={() => { onDelete(plant.id); setIsDeleteDialogOpen(false); }}>Delete</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
         </CardContent>
       </div>
-      <PlantDetail
-        plant={plant}
-        isOpen={isDetailOpen}
-        onClose={() => setIsDetailOpen(false)}
-        onUpdate={handleUpdatePlant}
-      />
+      {!readOnly && (
+        <PlantDetail
+          plant={plant}
+          isOpen={isDetailOpen}
+          onClose={() => setIsDetailOpen(false)}
+          onUpdate={handleUpdatePlant}
+        />
+      )}
     </Card>
   )
 }

@@ -44,6 +44,8 @@ export async function DELETE(
   } catch (error) {
     console.error('Error deleting image:', error)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+  } finally {
+    await prisma.$disconnect()
   }
 }
 
@@ -84,11 +86,8 @@ export async function GET(
       select: {
         id: true,
         imageUrl: true,
-        plant: {
-          select: {
-            userId: true,
-          },
-        },
+        width: true,
+        height: true,
       },
     })
 
@@ -99,23 +98,31 @@ export async function GET(
       return NextResponse.json({ error: 'Image not found' }, { status: 404 })
     }
 
-    if (image.plant.userId !== session.user.id) {
-      console.log('User not authorized to access this image')
-      return NextResponse.json({ error: 'Not authorized to access this image' }, { status: 403 })
-    }
-
     if (!image.imageUrl) {
       console.log('Image URL is missing')
       return NextResponse.json({ error: 'Image URL is missing' }, { status: 500 })
     }
 
-    console.log('Returning image data:', { id: image.id, imageUrl: image.imageUrl })
-    return NextResponse.json({ id: image.id, imageUrl: image.imageUrl })
+    console.log('Returning image data:', image)
+    return NextResponse.json(image)
   } catch (error) {
     console.error('Error fetching image:', error)
     return NextResponse.json(
       { error: 'Internal Server Error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
+  } finally {
+    await prisma.$disconnect()
   }
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  })
 }
