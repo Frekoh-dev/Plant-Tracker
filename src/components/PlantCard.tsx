@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Pencil, Trash2, Droplets, Scissors, ChevronDown, Sprout, Leaf, Flower, Apple, Image as ImageIcon, FileText, RefreshCw } from 'lucide-react'
+import { Pencil, Trash2, Droplets, Scissors, ChevronDown, Sprout, Leaf, Flower, Apple, Image as ImageIcon, FileText } from 'lucide-react'
 import { useToast } from "@/components/ui/use-toast"
 import PlantDetail from './PlantDetail'
 import { format, differenceInDays } from 'date-fns'
@@ -27,12 +27,6 @@ interface PlantCardProps {
   onToggle: () => void
   onOpenGallery: (id: number) => void
   readOnly?: boolean
-}
-
-interface UploadQueueItem {
-  file: File
-  status: 'pending' | 'uploading' | 'success' | 'error'
-  retry: () => void
 }
 
 export function PlantCard({
@@ -53,7 +47,6 @@ export function PlantCard({
   const [isImageUploadDialogOpen, setIsImageUploadDialogOpen] = useState(false)
   const [isWaterDialogOpen, setIsWaterDialogOpen] = useState(false)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
-  const [uploadQueue, setUploadQueue] = useState<UploadQueueItem[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [protocolEntries, setProtocolEntries] = useState<ProtocolEntry[]>([])
   const [isProtocolOpen, setIsProtocolOpen] = useState(false)
@@ -104,122 +97,140 @@ export function PlantCard({
   }
 
   const resizeImage = async (file: File, maxWidth: number, maxHeight: number): Promise<Blob> => {
-  return new Promise((resolve, reject) => {
-    const img = document.createElement('img')
-    img.onload = () => {
-      let width = img.width
-      let height = img.height
-      
-      if (width > height) {
-        if (width > maxWidth) {
-          height = Math.round((height * maxWidth) / width)
-          width = maxWidth
-        }
-      } else {
-        if (height > maxHeight) {
-          width = Math.round((width * maxHeight) / height)
-          height = maxHeight
-        }
-      }
-      
-      const canvas = document.createElement('canvas')
-      canvas.width = width
-      canvas.height = height
-      const ctx = canvas.getContext('2d')
-      ctx!.drawImage(img, 0, 0, width, height)
-      
-      canvas.toBlob((blob) => {
-        if (blob) {
-          resolve(blob)
+    return new Promise((resolve, reject) => {
+      const img = document.createElement('img');
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        
+        console.log(`Original dimensions: ${width}x${height}`);
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
         } else {
-          reject(new Error('Canvas to Blob conversion failed'))
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
         }
-      }, 'image/jpeg', 0.7)
-    }
-    img.onerror = reject
-    img.src = URL.createObjectURL(file)
-  })
-}
+        
+        console.log(`Resized dimensions: ${width}x${height}`);
 
-  const uploadImage = async (file: File): Promise<string> => {
-    const resizedImage = await resizeImage(file, 800, 800)
-    const formData = new FormData()
-    formData.append('image', resizedImage, file.name.replace(/\.[^/.]+$/, ".jpg"))
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx!.drawImage(img, 0, 0, width, height);
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            console.log(`Blob size: ${blob.size} bytes`);
+            resolve(blob);
+          } else {
+            reject(new Error('Canvas to Blob conversion failed'));
+          }
+        }, 'image/jpeg', 0.7);
+      };
+      img.onerror = reject;
+      img.src = URL.createObjectURL(file);
+    });
+  };
 
-    const response = await fetch(`/api/plants/${plant.id}/image`, {
+  const uploadImage = async (file: File, type: 'plant' | 'gallery'): Promise<string> => {
+    console.log(`Starting image upload process for ${type}`);
+    console.log(`Original file size: ${file.size} bytes`);
+    const resizedImage = type === 'plant' 
+      ? await resizeImage(file, 800, 800)
+      : await resizeImage(file, 1920, 1080);
+    console.log(`Resized image blob size: ${resizedImage.size} bytes`);
+
+    const formData = new FormData();
+    formData.append('image', resizedImage, file.name.replace(/\.[^/.]+$/, ".jpg"));
+
+    const endpoint = type === 'plant' 
+      ? `/api/plants/${plant.id}/image`
+      : `/api/plants/${plant.id}/gallery-image`;
+
+    console.log(`Uploading to endpoint: ${endpoint}`);
+
+    const response = await fetch(endpoint, {
       method: 'POST',
       body: formData,
-    })
+    });
 
     if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || 'Failed to upload image')
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to upload image');
     }
 
-    const data = await response.json()
-    return data.imageUrl
-  }
+    const data = await response.json();
+    console.log(`Upload successful, received URL: ${data.imageUrl}`);
+    return data.imageUrl;
+  };
 
   const processUploadQueue = async () => {
     if (isUploading) return
 
     setIsUploading(true)
-    const currentQueue = [...uploadQueue]
 
-    for (let i = 0; i < currentQueue.length; i++) {
-      const item = currentQueue[i]
-      if (item.status === 'pending' || item.status === 'error') {
-        try {
-          currentQueue[i].status = 'uploading'
-          setUploadQueue([...currentQueue])
+    try {
+      const input = document.getElementById('picture') as HTMLInputElement;
+      if (input.files && input.files.length > 0) {
+        const file = input.files[0];
+        const imageUrl = await uploadImage(file, 'plant')
+        await onImageUpload(plant.id, imageUrl)
 
-          const imageUrl = await uploadImage(item.file)
-          await onImageUpload(plant.id, imageUrl)
-
-          currentQueue[i].status = 'success'
-          setUploadQueue([...currentQueue])
-
-          toast({
-            title: "Success",
-            description: `${item.file.name} uploaded successfully!`,
-          })
-        } catch (error) {
-          console.error('Error uploading image:', error)
-          currentQueue[i].status = 'error'
-          setUploadQueue([...currentQueue])
-
-          toast({
-            title: "Error",
-            description: `Failed to upload ${item.file.name}. You can retry later.`,
-            variant: "destructive",
-          })
-        }
+        toast({
+          title: "Success",
+          description: `${file.name} uploaded successfully!`,
+        })
       }
-    }
+    } catch (error) {
+      console.error('Error uploading image:', error)
 
-    setIsUploading(false)
+      toast({
+        title: "Error",
+        description: "Failed to upload image. You can retry later.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUploading(false)
+    }
   }
+
+  const handleGalleryImageUpload = async (file: File) => {
+    try {
+      console.log(`Starting upload for gallery image: ${file.name}`);
+      console.log(`Original file size: ${file.size} bytes`);
+      const imageUrl = await uploadImage(file, 'gallery');
+      console.log(`Gallery image uploaded successfully: ${imageUrl}`);
+      await onImageUpload(plant.id, imageUrl);
+      toast({
+        title: "Success",
+        description: `${file.name} uploaded successfully to gallery!`,
+      });
+    } catch (error) {
+      console.error('Error uploading gallery image:', error);
+      toast({
+        title: "Error",
+        description: `Failed to upload ${file.name} to gallery. Please try again.`,
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const newFiles = Array.from(e.target.files)
-      const newQueueItems: UploadQueueItem[] = newFiles.map(file => ({
-        file,
-        status: 'pending',
-        retry: () => retryUpload(file)
-      }))
-      setUploadQueue(prevQueue => [...prevQueue, ...newQueueItems])
+      const newFiles = Array.from(e.target.files);
+      newFiles.forEach(file => {
+        console.log(`Processing file: ${file.name}`);
+        handleGalleryImageUpload(file);
+      });
     }
-  }
-
-  const retryUpload = (file: File) => {
-    setUploadQueue(prevQueue => 
-      prevQueue.map(item => 
-        item.file === file ? { ...item, status: 'pending' } : item
-      )
-    )
-    processUploadQueue()
-  }
+  };
 
   const handleDeleteProtocolEntry = async (entryId: number) => {
     try {
@@ -334,28 +345,8 @@ export function PlantCard({
                       <Label htmlFor="picture">Pictures</Label>
                       <Input id="picture" type="file" multiple onChange={handleFileChange} />
                     </div>
-                    {uploadQueue.length > 0 && (
-                      <div className="mt-4">
-                        <h4 className="mb-2 font-semibold">Upload Queue</h4>
-                        <ul className="space-y-2">
-                          {uploadQueue.map((item, index) => (
-                            <li key={index} className="flex items-center justify-between">
-                              <span>{item.file.name}</span>
-                              {item.status === 'error' ? (
-                                <Button size="sm" onClick={() => item.retry()}>
-                                  <RefreshCw className="h-4 w-4 mr-2" />
-                                  Retry
-                                </Button>
-                              ) : (
-                                <span className="text-sm">{item.status}</span>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
                     <DialogFooter className="mt-4">
-                      <Button onClick={() => processUploadQueue()} disabled={isUploading || uploadQueue.length === 0}>
+                      <Button onClick={() => processUploadQueue()} disabled={isUploading}>
                         {isUploading ? 'Uploading...' : 'Start Upload'}
                       </Button>
                     </DialogFooter>

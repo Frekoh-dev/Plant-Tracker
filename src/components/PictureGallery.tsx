@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { Progress } from "@/components/ui/progress"
 import { Pencil, X, Loader2, ZoomIn, Trash2 } from 'lucide-react'
 import { GalleryImage } from '@/types'
+import { resizeImage } from '@/lib/imageUtils'
 
 interface PictureGalleryProps {
   plantId: number
@@ -134,8 +135,12 @@ export function PictureGallery({ plantId, isOpen, onClose, readOnly }: PictureGa
     try {
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i]
+        
+        // Resize the image
+        const resizedImage = await resizeImage(file, 1920, 1080)
+        
         const formData = new FormData()
-        formData.append('file', file)
+        formData.append('file', resizedImage, file.name.replace(/\.[^/.]+$/, ".jpg"))
 
         const response = await fetch(`/api/plants/${plantId}/images`, {
           method: 'POST',
